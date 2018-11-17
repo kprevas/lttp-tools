@@ -502,7 +502,7 @@ impl Track {
                                     commands.push(ParameterizedCommand {
                                         duration: None,
                                         velocity: None,
-                                        command: Command::ChannelVolume(data)
+                                        command: Command::ChannelVolume(data * 2)
                                     })
                                 },
                                 _ => {},
