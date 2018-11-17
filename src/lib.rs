@@ -21,5 +21,11 @@ pub fn run(matches: clap::ArgMatches) {
         let mut midi = midi::MidiHandler::new();
         midi.read(Path::new(input_path.unwrap()));
         println!("{:#?}", midi);
+    } else if let Some(matches) = matches.subcommand_matches("dump_nspc") {
+        let input_path = matches.value_of("INPUT");
+        let mut midi = midi::MidiHandler::new();
+        midi.read(Path::new(input_path.unwrap()));
+        let song = nspc::Song::from_midi(&midi);
+        println!("{:#?}", song);
     }
 }

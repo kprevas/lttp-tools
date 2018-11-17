@@ -201,6 +201,7 @@ const PREAMBLE_OTHER_TRACK: [u8;2] = [
 enum Command {
     Note(u8),
     Rest,
+    Tie,
     SetInstrument(u8),
     Pan(u8),
     PanFade(u8, u8),
@@ -235,6 +236,9 @@ impl Command {
         match *self {
             Command::Note(note) => {
                 out.write_u8(note);
+            },
+            Command::Tie => {
+                out.write_u8(0xc8);
             },
             Command::Rest => {
                 out.write_u8(0xc9);
@@ -414,15 +418,28 @@ struct Track {
 
 impl Track {
 
-    fn get_duration(ticks: u32, ticks_per_beat: u16) -> u8 {
+    fn get_duration(ticks: u32, ticks_per_beat: u16) -> (u8, u8) {
         let length_beats = (ticks as f32) / (ticks_per_beat as f32);
-        ((length_beats * 24.0) as u8).max(1)
+        let length = (length_beats * 24.0) as u32;
+        if length > 0x7f {
+            ((length % 0x7f) as u8, (length / 0x7f) as u8)
+        } else {
+            ((length as u8).max(1), 0)
+        }
     }
 
     fn insert_rest(commands: &mut Vec<ParameterizedCommand>, mut last_note_end: u32, abs_time: u32, ticks_per_beat: u16) {
         if abs_time > last_note_end {
+            let (duration, overflow) = Track::get_duration(abs_time - last_note_end, ticks_per_beat);
+            for i in 0..overflow {
+                commands.push(ParameterizedCommand {
+                    duration: Some(0x7f),
+                    velocity: None,
+                    command: Command::Rest,
+                });
+            }
             commands.push(ParameterizedCommand {
-                duration: Some(Track::get_duration(abs_time - last_note_end, ticks_per_beat)),
+                duration: Some(duration),
                 velocity: None,
                 command: Command::Rest,
             });
@@ -441,7 +458,6 @@ impl Track {
                         Track::insert_rest(&mut commands, last_note_end, abs_time, ticks_per_beat);
                         let usec_per_beat = (data[0] as u32) * 0x10000 + (data[1] as u32) * 0x100 + (data[2] as u32);
                         let bpm = usec_per_beat / 6000;
-                        println!("ticks per beat {} usec per beat {} bpm {}", ticks_per_beat, usec_per_beat, bpm);
                         commands.push(ParameterizedCommand {
                             duration: None,
                             velocity: None,
@@ -453,11 +469,19 @@ impl Track {
                     match *event {
                         MidiEvent::NoteOff { ch, note, velocity } => {
                             if let Some(start) = note_start {
+                                let (duration, overflow) = Track::get_duration(abs_time - start, ticks_per_beat);
                                 commands.push(ParameterizedCommand {
-                                    duration: Some(Track::get_duration(abs_time - start, ticks_per_beat)),
+                                    duration: Some(if overflow > 0 { 0x7f } else { duration }),
                                     velocity: None,
                                     command: Command::Note(note + 0x68)
                                 });
+                                for i in 0..overflow {
+                                    commands.push(ParameterizedCommand {
+                                        duration: Some(if i < overflow - 1 { 0x7f } else { duration }),
+                                        velocity: None,
+                                        command: Command::Tie
+                                    });
+                                }
                                 note_start = None;
                                 last_note_end = abs_time;
                             }
