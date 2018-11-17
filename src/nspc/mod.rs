@@ -187,17 +187,14 @@ const INSTRUMENT_MAP: [u8;128] = [
     OOF //    127 Gunshot
 ];
 
-const PREAMBLE_TRACK_0: [u8;10] = [
+const PREAMBLE_TRACK_0: [u8;6] = [
     0xfa, 0x19,  // percussion offset
     0xe5, 0xc8,  // global volume
     0xed, 0xc8,  // channel volume
-    0xe9, 0x00,  // global transpose
-    0xea, 0x00,  // channel transpose
 ];
 
-const PREAMBLE_OTHER_TRACK: [u8;4] = [
+const PREAMBLE_OTHER_TRACK: [u8;2] = [
     0xed, 0xc8,  // channel volume
-    0xea, 0x00,  // channel transpose
 ];
 
 #[derive(Clone, Debug)]
@@ -476,6 +473,16 @@ impl Track {
                             // TODO
                         }
                         MidiEvent::ControlChange { ch, control, data } => {
+                            match control {
+                                7 => {  // channel volume
+                                    commands.push(ParameterizedCommand {
+                                        duration: None,
+                                        velocity: None,
+                                        command: Command::ChannelVolume(data)
+                                    })
+                                },
+                                _ => {},
+                            }
                             // TODO
                         }
                         MidiEvent::ProgramChange { ch, program } => {

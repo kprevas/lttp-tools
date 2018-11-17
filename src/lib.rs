@@ -16,5 +16,10 @@ pub fn run(matches: clap::ArgMatches) {
         midi.read(Path::new(input_path.unwrap()));
         let song = nspc::Song::from_midi(&midi);
         rom::Rom::write_all_base_songs_as(&song, Path::new(rom_path.unwrap()));
+    } else if let Some(matches) = matches.subcommand_matches("dump_midi") {
+        let input_path = matches.value_of("INPUT");
+        let mut midi = midi::MidiHandler::new();
+        midi.read(Path::new(input_path.unwrap()));
+        println!("{:#?}", midi);
     }
 }

@@ -9,6 +9,10 @@ fn main() {
             (@arg INPUT: "the input file to use")
             (@arg ROM: "the ROM file to use")
         )
+        (@subcommand dump_midi =>
+            (about: "read a MIDI file and dump it to stdout")
+            (@arg INPUT: "the input file to use")
+        )
     ).get_matches();
     midi2spc::run(matches);
 }
