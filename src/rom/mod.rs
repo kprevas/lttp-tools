@@ -113,19 +113,23 @@ impl Rom {
             romdata[addr + i * 2] = 0x36;
         }
 
-        // song data: single part
+        // song data: single part, looping
         romdata[addr + 0x37] = 0xd0;
-        romdata[addr + 0x36] = 0x3a;
+        romdata[addr + 0x36] = 0x3e;
         romdata[addr + 0x39] = 0x00;
-        romdata[addr + 0x38] = 0x00;
+        romdata[addr + 0x38] = 0xff;
+        romdata[addr + 0x3b] = 0xd0;
+        romdata[addr + 0x3a] = 0x36;
+        romdata[addr + 0x3d] = 0x00;
+        romdata[addr + 0x3c] = 0x00;
 
-        let mut track_data_addr = 0xd050u16;
+        let mut track_data_addr = 0xd054u16;
 
         let mut track_table = [0u8;16];
         {
             let mut track_table_idx = 0;
             let mut write = Cursor::new(romdata);
-            write.seek(SeekFrom::Start((addr + 0x50) as u64));
+            write.seek(SeekFrom::Start((addr + 0x54) as u64));
 
             for i in 0..8 {
                 let start = write.position();
@@ -144,7 +148,7 @@ impl Rom {
             romdata = write.into_inner();
         }
 
-        romdata[(addr + 0x3a)..(addr + 0x4a)].copy_from_slice(&track_table);
+        romdata[(addr + 0x3e)..(addr + 0x4e)].copy_from_slice(&track_table);
 
         file.seek(SeekFrom::Start(0));
         file.write(&romdata);
