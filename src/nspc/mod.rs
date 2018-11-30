@@ -1,8 +1,14 @@
+use std::error::*;
+use std::fs::*;
+use std::path::*;
+use std::io::prelude::*;
 use std::io::Write;
 use byteorder::*;
 use midi::MidiHandler;
 
 use ghakuf::messages::*;
+use serde::{Deserialize, Serialize};
+use serde_json;
 
 const TEMPO_FACTOR: f32 = 0.2;
 
@@ -197,7 +203,7 @@ const PREAMBLE_OTHER_TRACK: [u8;2] = [
     0xed, 0xc8,  // channel volume
 ];
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 enum Command {
     Note(u8),
     Rest,
@@ -372,7 +378,7 @@ impl Command {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct ParameterizedCommand {
     duration: Option<u8>,
     velocity: Option<u8>,
@@ -411,7 +417,7 @@ impl ParameterizedCommand {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct Track {
     commands: Vec<ParameterizedCommand>,
 }
@@ -548,7 +554,7 @@ impl Track {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Part {
     tracks: Vec<Track>,
 }
@@ -560,7 +566,7 @@ impl Part {
 
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Song {
     parts: Vec<Part>,
 }
@@ -578,6 +584,16 @@ impl Song {
         Song {
             parts,
         }
+    }
+
+    pub fn from_json(path: &Path) -> Song {
+        let file = File::open(path).unwrap();
+        serde_json::from_reader(file).unwrap()
+    }
+
+    pub fn write_to_json(&self, path: &Path) {
+        let out = File::create(path).unwrap();
+        serde_json::to_writer_pretty(out, self).unwrap()
     }
 
     pub fn write_part_zero_track(&self, out: &mut Write, track_idx: usize) {
