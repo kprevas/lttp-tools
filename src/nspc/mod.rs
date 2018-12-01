@@ -556,33 +556,28 @@ impl Track {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Part {
-    tracks: Vec<Track>,
-}
-
-impl Part {
-    fn write(&self, out: &mut Write) {
-        self.tracks.iter().for_each(|t| t.write(out));
-    }
-
+    tracks: Vec<usize>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Song {
     parts: Vec<Part>,
+    tracks: Vec<Track>,
 }
 
 impl Song {
     pub fn from_midi(midi: &MidiHandler) -> Song {
-        let mut tracks = midi.channel_map.iter().map(|channel| {
+        let mut tracks: Vec<Track> = midi.channel_map.iter().map(|channel| {
             Track::new(midi.events_for_channel(*channel), midi.ticks_per_beat)
         }).collect();
         let mut parts = Vec::new();
         let mut part = Part {
-            tracks,
+            tracks: tracks.iter().enumerate().map(|(i, _)| i).collect(),
         };
         parts.push(part);
         Song {
             parts,
+            tracks
         }
     }
 
@@ -596,10 +591,18 @@ impl Song {
         serde_json::to_writer_pretty(out, self).unwrap()
     }
 
-    pub fn write_part_zero_track(&self, out: &mut Write, track_idx: usize) {
-        let track = &self.parts[0].tracks[track_idx];
+    pub fn get_part_tracks(&self, part_idx: usize) -> &[usize] {
+        self.parts[part_idx].tracks.as_slice()
+    }
+
+    pub fn get_num_tracks(&self) -> usize {
+        self.tracks.len()
+    }
+
+    pub fn write_track(&self, out: &mut Write, track_idx: usize) {
+        let track = &self.tracks[track_idx];
         if !track.commands.is_empty() {
-            if track_idx == 0 {
+            if self.parts.iter().any(|part| part.tracks[0] == track_idx) {
                 out.write(&PREAMBLE_TRACK_0);
             } else {
                 out.write(&PREAMBLE_OTHER_TRACK);

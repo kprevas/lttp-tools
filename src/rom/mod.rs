@@ -123,32 +123,35 @@ impl Rom {
         romdata[addr + 0x3d] = 0x00;
         romdata[addr + 0x3c] = 0x00;
 
-        let mut track_data_addr = 0xd054u16;
+        let track_table_size = (song.get_part_tracks(0).len() * 2) as usize;
+        let mut track_data_addr = 0xd03e + track_table_size;
+        let track_data_rom_addr = addr + 0x3e + track_table_size;
 
-        let mut track_table = [0u8;16];
+        let mut track_addrs = Vec::<usize>::new();
         {
-            let mut track_table_idx = 0;
             let mut write = Cursor::new(romdata);
-            write.seek(SeekFrom::Start((addr + 0x54) as u64));
+            write.seek(SeekFrom::Start(track_data_rom_addr as u64));
 
-            for i in 0..8 {
+            for i in 0..song.get_num_tracks() {
                 let start = write.position();
-                song.write_part_zero_track(&mut write, i);
-                let size_written = write.position() - start;
+                song.write_track(&mut write, i);
+                let size_written = (write.position() - start) as usize;
                 if size_written > 0 {
-                    track_table[track_table_idx] = (track_data_addr & 0xff) as u8;
-                    track_table[track_table_idx + 1] = ((track_data_addr & 0xff00) >> 8) as u8;
-                    track_data_addr += size_written as u16;
+                    track_addrs.push(track_data_addr);
+                    track_data_addr += size_written;
                 } else {
-                    track_table[track_table_idx] = 0x00;
-                    track_table[track_table_idx + 1] = 0x00;
+                    track_addrs.push(0);
                 }
-                track_table_idx += 2;
             }
             romdata = write.into_inner();
         }
 
-        romdata[(addr + 0x3e)..(addr + 0x4e)].copy_from_slice(&track_table);
+        let mut track_table_addr = addr + 0x3e;
+        song.get_part_tracks(0).iter().for_each(|&track_idx| {
+            romdata[track_table_addr] = (track_addrs[track_idx] & 0xff) as u8;
+            romdata[track_table_addr + 1] = ((track_addrs[track_idx] & 0xff00) >> 8) as u8;
+            track_table_addr += 2;
+        });
 
         file.seek(SeekFrom::Start(0));
         file.write(&romdata);
