@@ -59,18 +59,18 @@ const CHOIR: u8 = 21;
 const FLUTE: u8 = 22;
 //23. "Oof" (17)
 const OOF: u8 = 23;
-//24. Guitar (18)
-const GUITAR: u8 = 24;
+//24. Guitar (18)  we think this sounds more like a piano
+const PIANO: u8 = 24;
 
 const INSTRUMENT_MAP: [u8;128] = [
-    CHIME, //    0 Acoustic Grand Piano
-    CHIME, //    1 Bright Acoustic Piano
-    CHIME, //    2 Electric Grand Piano
-    CHIME, //    3 Honky-tonk Piano
-    CHIME, //    4 Electric Piano 1
-    CHIME, //    5 Electric Piano 2
-    CHIME, //    6 Harpsichord
-    CHIME, //    7 Clavinet
+    PIANO, //    0 Acoustic Grand Piano
+    PIANO, //    1 Bright Acoustic Piano
+    PIANO, //    2 Electric Grand Piano
+    PIANO, //    3 Honky-tonk Piano
+    PIANO, //    4 Electric Piano 1
+    PIANO, //    5 Electric Piano 2
+    PIANO, //    6 Harpsichord
+    PIANO, //    7 Clavinet
     CHIME, //    8 Celesta
     CHIME, //    9 Glockenspiel
     CHIME, //    10 Music Box
@@ -87,22 +87,22 @@ const INSTRUMENT_MAP: [u8;128] = [
     STRINGS, //    21 Accordion
     OCARINA, //    22 Harmonica
     OOF,
-    GUITAR, //    24 Acoustic Guitar (nylon)
-    GUITAR, //    25 Acoustic Guitar (steel)
-    GUITAR, //    26 Electric Guitar (jazz)
-    GUITAR, //    27 Electric Guitar (clean)
-    GUITAR, //    28 Electric Guitar (muted)
-    GUITAR, //    29 Overdriven Guitar
-    GUITAR, //    30 Distortion Guitar
-    GUITAR, //    31 Guitar Harmonics
-    GUITAR, //    32 Acoustic Bass
-    GUITAR, //    33 Electric Bass (finger)
-    GUITAR, //    34 Electric Bass (pick)
-    GUITAR, //    35 Fretless Bass
-    GUITAR, //    36 Slap Bass 1
-    GUITAR, //    37 Slap Bass 2
-    GUITAR, //    38 Synth Bass 1
-    GUITAR, //    39 Synth Bass 2
+    PIANO, //    24 Acoustic Guitar (nylon)
+    PIANO, //    25 Acoustic Guitar (steel)
+    PIANO, //    26 Electric Guitar (jazz)
+    PIANO, //    27 Electric Guitar (clean)
+    PIANO, //    28 Electric Guitar (muted)
+    PIANO, //    29 Overdriven Guitar
+    PIANO, //    30 Distortion Guitar
+    PIANO, //    31 Guitar Harmonics
+    PIANO, //    32 Acoustic Bass
+    PIANO, //    33 Electric Bass (finger)
+    PIANO, //    34 Electric Bass (pick)
+    PIANO, //    35 Fretless Bass
+    PIANO, //    36 Slap Bass 1
+    PIANO, //    37 Slap Bass 2
+    PIANO, //    38 Synth Bass 1
+    PIANO, //    39 Synth Bass 2
     STRINGS, //    40 Violin
     STRINGS, //    41 Viola
     STRINGS, //    42 Cello
@@ -167,11 +167,11 @@ const INSTRUMENT_MAP: [u8;128] = [
     RAIN, //    101 FX 6 (goblins)
     RAIN, //    102 FX 7 (echoes)
     RAIN, //    103 FX 8 (sci-fi)
-    GUITAR, //    104 Sitar
-    GUITAR, //    105 Banjo
-    GUITAR, //    106 Shamisen
-    GUITAR, //    107 Koto
-    GUITAR, //    108 Kalimba
+    PIANO, //    104 Sitar
+    PIANO, //    105 Banjo
+    PIANO, //    106 Shamisen
+    PIANO, //    107 Koto
+    PIANO, //    108 Kalimba
     HORN, //    109 Bagpipe
     STRINGS, //    110 Fiddle
     HORN, //    111 Shanai
