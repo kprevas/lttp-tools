@@ -10,7 +10,7 @@ use ghakuf::messages::*;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
-const TEMPO_FACTOR: f32 = 0.2;
+const TEMPO_FACTOR: f32 = 0.3;
 
 // instruments
 //0. Unknown (00)
