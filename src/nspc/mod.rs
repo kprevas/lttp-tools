@@ -422,22 +422,39 @@ struct Track {
     commands: Vec<ParameterizedCommand>,
 }
 
+struct Duration {
+    length: u8,
+    quantized_ticks: u32,
+    overflow_count: u8,
+}
+
 impl Track {
 
-    fn get_duration(ticks: u32, ticks_per_beat: u16) -> (u8, u8) {
+
+    fn get_duration(ticks: u32, ticks_per_beat: u16, ceil: bool) -> Duration {
         let length_beats = (ticks as f32) / (ticks_per_beat as f32);
-        let length = (length_beats * 24.0) as u32;
-        if length > 0x7f {
-            ((length % 0x7f) as u8, (length / 0x7f) as u8)
+        let length = (length_beats * 24.0);
+        let quantized_length = if ceil { length.ceil() as u32 } else { length.floor() as u32 };
+        let quantized_ticks = quantized_length * (ticks_per_beat as u32) / 24;
+        if quantized_length > 0x7f {
+            Duration {
+                length: (quantized_length % 0x7f) as u8,
+                quantized_ticks,
+                overflow_count: (quantized_length / 0x7f) as u8,
+            }
         } else {
-            ((length as u8).max(1), 0)
+            Duration {
+                length: quantized_length as u8,
+                quantized_ticks,
+                overflow_count: 0,
+            }
         }
     }
 
-    fn insert_rest(commands: &mut Vec<ParameterizedCommand>, mut last_note_end: u32, abs_time: u32, ticks_per_beat: u16) {
+    fn insert_rest(commands: &mut Vec<ParameterizedCommand>, last_note_end: u32, abs_time: u32, ticks_per_beat: u16) -> u32 {
         if abs_time > last_note_end {
-            let (duration, overflow) = Track::get_duration(abs_time - last_note_end, ticks_per_beat);
-            for i in 0..overflow {
+            let duration = Track::get_duration(abs_time - last_note_end, ticks_per_beat, false);
+            for i in 0..duration.overflow_count {
                 commands.push(ParameterizedCommand {
                     duration: Some(0x7f),
                     velocity: None,
@@ -445,11 +462,13 @@ impl Track {
                 });
             }
             commands.push(ParameterizedCommand {
-                duration: Some(duration),
+                duration: Some(duration.length),
                 velocity: None,
                 command: Command::Rest,
             });
-            last_note_end = abs_time;
+            last_note_end + duration.quantized_ticks
+        } else {
+            last_note_end
         }
     }
 
@@ -462,7 +481,7 @@ impl Track {
             match *message {
                 Message::MetaEvent { delta_time, ref event, ref data } => {
                     if let MetaEvent::SetTempo = *event {
-                        Track::insert_rest(&mut commands, last_note_end, abs_time, ticks_per_beat);
+                        last_note_end = Track::insert_rest(&mut commands, last_note_end, abs_time, ticks_per_beat);
                         let usec_per_beat = (data[0] as u32) * 0x10000 + (data[1] as u32) * 0x100 + (data[2] as u32);
                         let bpm = usec_per_beat / 6000;
                         commands.push(ParameterizedCommand {
@@ -476,7 +495,7 @@ impl Track {
                     match *event {
                         MidiEvent::NoteOff { ch, note, velocity } => {
                             if let Some(start) = note_start {
-                                let (duration, overflow) = Track::get_duration(abs_time - start, ticks_per_beat);
+                                let duration = Track::get_duration(abs_time - start, ticks_per_beat, true);
                                 if ch == 10 {
                                     let mut instr;
                                     if note == 0x3e || note == 0x40 {
@@ -494,23 +513,23 @@ impl Track {
                                     }
                                 }
                                 commands.push(ParameterizedCommand {
-                                    duration: Some(if overflow > 0 { 0x7f } else { duration }),
+                                    duration: Some(if duration.overflow_count > 0 { 0x7f } else { duration.length }),
                                     velocity: None,
                                     command: Command::Note(note + 0x68)
                                 });
-                                for i in 0..overflow {
+                                for i in 0..duration.overflow_count {
                                     commands.push(ParameterizedCommand {
-                                        duration: Some(if i < overflow - 1 { 0x7f } else { duration }),
+                                        duration: Some(if i < duration.overflow_count - 1 { 0x7f } else { duration.length }),
                                         velocity: None,
                                         command: Command::Tie
                                     });
                                 }
+                                last_note_end = start + duration.quantized_ticks;
                                 note_start = None;
-                                last_note_end = abs_time;
                             }
                         }
                         MidiEvent::NoteOn { ch, note, velocity } => {
-                            Track::insert_rest(&mut commands, last_note_end, abs_time, ticks_per_beat);
+                            last_note_end = Track::insert_rest(&mut commands, last_note_end, abs_time, ticks_per_beat);
                             if note_start.is_some() {
                                 panic!("More than one voice needed on channel {}", ch);
                             }
@@ -533,7 +552,7 @@ impl Track {
                             // TODO
                         }
                         MidiEvent::ProgramChange { ch, program } => {
-                            Track::insert_rest(&mut commands, last_note_end, abs_time, ticks_per_beat);
+                            last_note_end = Track::insert_rest(&mut commands, last_note_end, abs_time, ticks_per_beat);
                             commands.push(ParameterizedCommand {
                                 duration: None,
                                 velocity: None,
