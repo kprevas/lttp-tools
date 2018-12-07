@@ -457,6 +457,7 @@ impl Track {
         let mut commands = Vec::new();
         let mut note_start: Option<u32> = None;
         let mut last_note_end = 0u32;
+        let mut last_ch11_instr = 0;
         for &(abs_time, ref message) in events.as_ref() {
             match *message {
                 Message::MetaEvent { delta_time, ref event, ref data } => {
@@ -476,6 +477,22 @@ impl Track {
                         MidiEvent::NoteOff { ch, note, velocity } => {
                             if let Some(start) = note_start {
                                 let (duration, overflow) = Track::get_duration(abs_time - start, ticks_per_beat);
+                                if ch == 10 {
+                                    let mut instr;
+                                    if note == 0x3e || note == 0x40 {
+                                        instr = SNARE;
+                                    } else {
+                                        instr = CYMBAL;
+                                    }
+                                    if last_ch11_instr != instr {
+                                        commands.push(ParameterizedCommand {
+                                            duration: None,
+                                            velocity: None,
+                                            command: Command::SetInstrument(instr)
+                                        });
+                                        last_ch11_instr = instr;
+                                    }
+                                }
                                 commands.push(ParameterizedCommand {
                                     duration: Some(if overflow > 0 { 0x7f } else { duration }),
                                     velocity: None,
