@@ -1,4 +1,3 @@
-use std::fmt;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
@@ -123,7 +122,7 @@ impl Rom {
         romdata[addr + 0x3d] = 0x00;
         romdata[addr + 0x3c] = 0x00;
 
-        let track_table_size = (song.get_part_tracks(0).len() * 2) as usize;
+        let track_table_size = 16usize;
         let mut track_data_addr = 0xd03e + track_table_size;
         let track_data_rom_addr = addr + 0x3e + track_table_size;
 
@@ -147,6 +146,9 @@ impl Rom {
         }
 
         let mut track_table_addr = addr + 0x3e;
+        for i in 0..track_table_size {
+            romdata[track_table_addr + i] = 0;
+        }
         song.get_part_tracks(0).iter().for_each(|&track_idx| {
             romdata[track_table_addr] = (track_addrs[track_idx] & 0xff) as u8;
             romdata[track_table_addr + 1] = ((track_addrs[track_idx] & 0xff00) >> 8) as u8;
