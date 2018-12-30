@@ -430,10 +430,9 @@ struct Duration {
 
 impl Track {
 
-
     fn get_duration(ticks: u32, ticks_per_beat: u16, ceil: bool) -> Duration {
         let length_beats = (ticks as f32) / (ticks_per_beat as f32);
-        let length = (length_beats * 24.0);
+        let length = length_beats * 24.0;
         let quantized_length = if ceil { length.ceil() as u32 } else { length.floor() as u32 };
         let quantized_ticks = quantized_length * (ticks_per_beat as u32) / 24;
         if quantized_length > 0x7f {
@@ -472,12 +471,12 @@ impl Track {
         }
     }
 
-    fn new(events: Box<Vec<(u32, Message)>>, ticks_per_beat: u16) -> Track {
+    fn new(events: Box<Vec<(Message, u32)>>, ticks_per_beat: u16) -> Track {
         let mut commands = Vec::new();
         let mut note_start: Option<u32> = None;
         let mut last_note_end = 0u32;
         let mut last_ch11_instr = 0;
-        for &(abs_time, ref message) in events.as_ref() {
+        for &(ref message, abs_time) in events.as_ref() {
             match *message {
                 Message::MetaEvent { delta_time, ref event, ref data } => {
                     if let MetaEvent::SetTempo = *event {
@@ -603,9 +602,11 @@ pub struct Song {
 
 impl Song {
     pub fn from_midi(midi: &MidiHandler) -> Song {
-        let mut tracks: Vec<Track> = midi.channel_map.iter().map(|channel| {
-            Track::new(midi.events_for_channel(*channel), midi.ticks_per_beat)
-        }).collect();
+        let mut tracks: Vec<Track> = (0..16).map(|voice| {
+            Track::new(midi.events_for_voice(voice), midi.ticks_per_beat)
+        })
+            .filter(|track| !track.commands.is_empty())
+            .collect();
         let mut parts = Vec::new();
         let mut part = Part {
             tracks: tracks.iter().enumerate().map(|(i, _)| i).collect(),
