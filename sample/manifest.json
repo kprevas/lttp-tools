@@ -1,0 +1,110 @@
+{
+  "overworld": {
+    "Title": {
+      "input": "title.mid"
+    },
+    "World Map": {
+      "input": "worldmap.mid"
+    },
+    "Beginning": {
+      "input": "beginning.mid"
+    },
+    "Rabbit": {
+      "input": "rabbit.mid"
+    },
+    "Forest": {
+      "input": "forest.mid"
+    },
+    "Intro": {
+      "input": "intro.mid"
+    },
+    "Town": {
+      "input": "town.mid"
+    },
+    "Warp": {
+      "input": "warp.mid"
+    },
+    "Dark World": {
+      "input": "darkworld.mid"
+    },
+    "Master Sword": {
+      "input": "mastersword.mid"
+    },
+    "File Select": {
+      "input": "fileselect.mid"
+    },
+    "Soldier": {
+      "input": "solider.mid"
+    },
+    "Mountain": {
+      "input": "mountain.mid"
+    },
+    "Shop": {
+      "input": "shop.mid"
+    },
+    "Fanfare": {
+      "input": "fanfare.mid"
+    }
+  },
+  "indoor": {
+    "Castle": {
+      "input": "castle.mid"
+    },
+    "Palace": {
+      "input": "palace.mid"
+    },
+    "Cave": {
+      "input": "cave.mid"
+    },
+    "Clear": {
+      "input": "clear.mid"
+    },
+    "Church": {
+      "input": "church.mid"
+    },
+    "Boss": {
+      "input": "boss.mid"
+    },
+    "Dungeon": {
+      "input": "dungeon.mid"
+    },
+    "Psychic": {
+      "input": "psychic.mid"
+    },
+    "Secret Way": {
+      "input": "secret.mid"
+    },
+    "Rescue": {
+      "input": "rescue.mid"
+    },
+    "Crystal": {
+      "input": "crystal.mid"
+    },
+    "Fountain": {
+      "input": "fountain.mid"
+    },
+    "Pyramid": {
+      "input": "pyramid.mid"
+    },
+    "Kill Agahnim": {
+      "input": "aga.mid"
+    },
+    "Ganon Room": {
+      "input": "ganon.mid"
+    },
+    "Last Boss": {
+      "input": "boss.mid"
+    }
+  },
+  "ending": {
+    "Triforce": {
+      "input": "triforce.mid"
+    },
+    "Ending": {
+      "input": "ending.mid"
+    },
+    "Staff": {
+      "input": "staff.mid"
+    }
+  }
+}
