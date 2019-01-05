@@ -5,6 +5,11 @@ extern crate clap;
 fn main() {
     let matches = clap_app!(midi2spc =>
         (@setting SubcommandRequiredElseHelp)
+        (@subcommand build_rom =>
+            (about: "build a ROM according to a manifest file")
+            (@arg MANIFEST: "the manifest file to use")
+            (@arg ROM: "the ROM file to use")
+        )
         (@subcommand all_overworld_midi =>
             (about: "convert a MIDI file and replace all overworld music with it")
             (@arg INPUT: "the input file to use")

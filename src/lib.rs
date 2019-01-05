@@ -12,9 +12,15 @@ use std::path::{Path};
 pub mod midi;
 pub mod nspc;
 pub mod rom;
+pub mod manifest;
 
 pub fn run(matches: clap::ArgMatches) {
-    if let Some(matches) = matches.subcommand_matches("all_overworld_midi") {
+    if let Some(matches) = matches.subcommand_matches("build_rom") {
+        let manifest_path = matches.value_of("MANIFEST");
+        let rom_path = matches.value_of("ROM");
+        let manifest = manifest::Manifest::new(Path::new(manifest_path.unwrap()));
+        println!("{:#?}", manifest);
+    } else if let Some(matches) = matches.subcommand_matches("all_overworld_midi") {
         let input_path = matches.value_of("INPUT");
         let rom_path = matches.value_of("ROM");
         let mut midi = midi::MidiHandler::new();
