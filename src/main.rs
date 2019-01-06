@@ -10,13 +10,12 @@ fn main() {
             (@arg MANIFEST: "the manifest file to use")
             (@arg ROM: "the ROM file to use")
         )
-        (@subcommand all_overworld_midi =>
-            (about: "convert a MIDI file and replace all overworld music with it")
-            (@arg INPUT: "the input file to use")
+        (@subcommand load_rom =>
+            (about: "load in existing songs from a ROM")
             (@arg ROM: "the ROM file to use")
         )
-        (@subcommand all_overworld_json =>
-            (about: "read a song from JSON and replace all overworld music with it")
+        (@subcommand all_overworld =>
+            (about: "convert a MIDI or JSON file and replace all music with it")
             (@arg INPUT: "the input file to use")
             (@arg ROM: "the ROM file to use")
         )

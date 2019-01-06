@@ -10,10 +10,10 @@ const INDOOR_SONGS: [&str;16] = ["Castle", "Palace", "Cave", "Clear", "Church", 
 const ENDING_SONGS: [&str;3] = ["Triforce", "Ending", "Staff"];
 
 #[derive(Debug)]
-struct Song {
-    input: PathBuf,
-    tempo_factor: f32,
-    loops: bool,
+pub struct Song {
+    pub input: PathBuf,
+    pub tempo_factor: f32,
+    pub loops: bool,
 }
 
 impl Song {
@@ -21,14 +21,14 @@ impl Song {
         Song {
             input: PathBuf::from(input["input"].as_str().unwrap()),
             tempo_factor: input["tempoAdjust"].as_f64().unwrap_or(DEFAULT_TEMPO_ADJUST) as f32,
-            loops: input["loop"].as_bool().unwrap_or(false),
+            loops: input["loop"].as_bool().unwrap_or(true),
         }
     }
 }
 
 #[derive(Debug)]
-struct Bank {
-    songs: Vec<Song>,
+pub struct Bank {
+    pub songs: Vec<Song>,
 }
 
 impl Bank {
@@ -43,7 +43,7 @@ impl Bank {
 
 #[derive(Debug)]
 pub struct Manifest {
-    banks: [Bank;3],
+    pub banks: [Bank;3],
 }
 
 impl Manifest {
@@ -56,6 +56,59 @@ impl Manifest {
                 Bank::new(&json["indoor"], &INDOOR_SONGS),
                 Bank::new(&json["ending"], &ENDING_SONGS),
             ],
+        }
+    }
+
+    pub fn single_song(song_path: &Path) -> Manifest {
+        Manifest {
+            banks: [
+                Bank {
+                    songs: vec![
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                    ],
+                },
+                Bank {
+                    songs: vec![
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                    ],
+                },
+                Bank {
+                    songs: vec![
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                        Song { input: song_path.to_path_buf(), tempo_factor: 0.3, loops: true },
+                    ],
+                },
+            ]
         }
     }
 }
