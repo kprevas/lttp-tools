@@ -160,15 +160,23 @@ impl Rom {
             }
             addr = chunk.offset_addr + chunk.length;
         }
-        assert_ne!(base_chunk_addr, 0);
-        assert_ne!(overflow_chunk_addr, 0);
+        ensure!(
+            base_chunk_addr != 0,
+            "Couldn't find base chunk for {} bank",
+            bank.name
+        );
+        ensure!(
+            overflow_chunk_addr != 0,
+            "Couldn't find overflow chunk for {} bank",
+            bank.name
+        );
         let mut rom_addr = base_chunk_addr;
         let mut chunk_length = base_chunk_len;
         let mut aram_base_addr = ARAM_BASE;
 
         println!(
-            "Writing bank to 0x{:X} starting at song {}.  Available chunk length is {:X}",
-            rom_addr, first_song, chunk_length
+            "Writing {} bank to 0x{:X} starting at song {}.  Available chunk length is {:X}",
+            bank.name, rom_addr, first_song, chunk_length
         );
 
         let mut song_table_addr = rom_addr + first_song * 2;
@@ -179,9 +187,10 @@ impl Rom {
 
             // check if non-track data fits in chunk
             if song_offset + (if song_def.loops { 8 } else { 4 }) + 16 > chunk_length {
-                assert_ne!(
-                    aram_base_addr, aram_overflow_base,
-                    "Bank does not fit in available chunks"
+                ensure!(
+                    aram_base_addr != aram_overflow_base,
+                    "{} bank does not fit in available chunks",
+                    bank.name
                 );
                 println!("Switching to overflow chunk");
                 song_offset = 0;
@@ -238,9 +247,10 @@ impl Rom {
 
                 // check if track data fits in chunk
                 if track_data_offset + track_data.len() > chunk_length {
-                    assert_ne!(
-                        aram_base_addr, aram_overflow_base,
-                        "Bank does not fit in available chunks"
+                    ensure!(
+                        aram_base_addr != aram_overflow_base,
+                        "{} bank does not fit in available chunks",
+                        bank.name
                     );
                     println!("Switching to overflow chunk");
                     track_data_offset = 0;

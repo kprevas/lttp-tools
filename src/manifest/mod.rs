@@ -63,12 +63,14 @@ impl Song {
 
 #[derive(Debug)]
 pub struct Bank {
+    pub name: &'static str,
     pub songs: Vec<Song>,
 }
 
 impl Bank {
-    pub fn new(input: &Value, song_names: &[&str]) -> Bank {
+    pub fn new(input: &Value, name: &'static str, song_names: &[&str]) -> Bank {
         Bank {
+            name,
             songs: song_names
                 .iter()
                 .map(|&song_name| Song::new(&input[song_name]))
@@ -88,9 +90,9 @@ impl Manifest {
         let json: Value = serde_json::from_reader(reader).unwrap();
         Manifest {
             banks: [
-                Bank::new(&json["overworld"], &OVERWORLD_SONGS),
-                Bank::new(&json["indoor"], &INDOOR_SONGS),
-                Bank::new(&json["ending"], &ENDING_SONGS),
+                Bank::new(&json["overworld"], "overworld", &OVERWORLD_SONGS),
+                Bank::new(&json["indoor"], "indoor", &INDOOR_SONGS),
+                Bank::new(&json["ending"], "ending", &ENDING_SONGS),
             ],
         }
     }
@@ -99,6 +101,7 @@ impl Manifest {
         Manifest {
             banks: [
                 Bank {
+                    name: "Overworld",
                     songs: vec![
                         Song {
                             input: song_path.to_path_buf(),
@@ -178,6 +181,7 @@ impl Manifest {
                     ],
                 },
                 Bank {
+                    name: "Indoor",
                     songs: vec![
                         Song {
                             input: song_path.to_path_buf(),
@@ -262,6 +266,7 @@ impl Manifest {
                     ],
                 },
                 Bank {
+                    name: "Ending",
                     songs: vec![
                         Song {
                             input: song_path.to_path_buf(),

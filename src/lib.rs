@@ -51,7 +51,7 @@ pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
         let output_path = matches.value_of("OUTPUT");
         let mut midi = midi::MidiHandler::new();
         midi.read(Path::new(input_path.unwrap()))?;
-        let song = nspc::Song::from_midi(&midi);
+        let song = nspc::Song::from_midi(&midi)?;
         song.write_to_json(Path::new(output_path.unwrap()));
     }
     Ok(())
@@ -60,5 +60,5 @@ pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
 fn song_from_midi(path: &Path) -> Result<nspc::Song, Error> {
     let mut midi = midi::MidiHandler::new();
     midi.read(path)?;
-    Ok(nspc::Song::from_midi(&midi))
+    nspc::Song::from_midi(&midi)
 }

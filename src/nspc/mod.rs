@@ -483,7 +483,7 @@ impl Track {
         }
     }
 
-    fn new(events: Box<Vec<(Message, u32)>>, ticks_per_beat: u16) -> Track {
+    fn new(events: Box<Vec<(Message, u32)>>, ticks_per_beat: u16) -> Result<Track, Error> {
         let mut commands = Vec::new();
         let mut note_start: Option<u32> = None;
         let mut last_note_end = 0u32;
@@ -567,7 +567,7 @@ impl Track {
                                 ticks_per_beat,
                             );
                             if note_start.is_some() {
-                                panic!("More than one voice needed on channel {}", ch);
+                                bail!("More than one voice needed on channel {}", ch);
                             }
                             note_start = Some(abs_time)
                         }
@@ -616,7 +616,7 @@ impl Track {
                 _ => {}
             }
         }
-        Track { commands }
+        Ok(Track { commands })
     }
 
     fn write(&self, out: &mut Write) -> Result<(), Error> {
@@ -643,17 +643,32 @@ pub struct Song {
 }
 
 impl Song {
-    pub fn from_midi(midi: &MidiHandler) -> Song {
-        let tracks: Vec<Track> = (0..16)
-            .map(|voice| Track::new(midi.events_for_voice(voice), midi.ticks_per_beat))
-            .filter(|track| !track.commands.is_empty())
+    pub fn from_midi(midi: &MidiHandler) -> Result<Song, Error> {
+        let tracks: Result<Vec<Track>, Error> = (0..16)
+            .filter_map(|voice| {
+                match Track::new(midi.events_for_voice(voice), midi.ticks_per_beat) {
+                    Ok(track) => {
+                        if track.commands.is_empty() {
+                            None
+                        } else {
+                            Some(Ok(track))
+                        }
+                    }
+                    Err(err) => Some(Err(err)),
+                }
+            })
             .collect();
-        let mut parts = Vec::new();
-        let part = Part {
-            tracks: tracks.iter().enumerate().map(|(i, _)| i).collect(),
-        };
-        parts.push(part);
-        Song { parts, tracks }
+        match tracks {
+            Ok(tracks) => {
+                let mut parts = Vec::new();
+                let part = Part {
+                    tracks: tracks.iter().enumerate().map(|(i, _)| i).collect(),
+                };
+                parts.push(part);
+                Ok(Song { parts, tracks })
+            }
+            Err(err) => Err(err),
+        }
     }
 
     pub fn from_json(path: &Path) -> Song {
