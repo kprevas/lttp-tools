@@ -221,7 +221,7 @@ enum Command {
     TremoloOff,
     ChannelVolume(u8),
     ChannelVolumeFade(u8),
-    CallLoop(u8, u8, u8),
+    CallLoop(usize, u8),
     VibratoFade(u8),
     PitchEnvelopeTo(u8, u8, u8),
     PitchEnvelopeFrom(u8, u8, u8),
@@ -312,11 +312,12 @@ impl Command {
                 out.write_u8(0xee)?;
                 out.write_u8(p1)?;
             }
-            Command::CallLoop(p1, p2, p3) => {
+            Command::CallLoop(_p1, p2) => {
                 out.write_u8(0xef)?;
-                out.write_u8(p1)?;
+                // TODO record track reference (p1)
+                out.write_u8(0x00)?;
+                out.write_u8(0xd0)?;
                 out.write_u8(p2)?;
-                out.write_u8(p3)?;
             }
             Command::VibratoFade(p1) => {
                 out.write_u8(0xf0)?;
@@ -396,18 +397,20 @@ impl ParameterizedCommand {
         match self.duration {
             Some(duration) => {
                 if duration != prev_duration {
-                    out.write_u8(duration)?;
-                    match self.velocity {
-                        Some(velocity) => {
-                            if prev_velocity.is_none() || prev_velocity.unwrap() != velocity {
-                                out.write_u8(velocity)?;
-                                velocity_out = Some(velocity);
+                    if duration > 0 {
+                        out.write_u8(duration)?;
+                        match self.velocity {
+                            Some(velocity) => {
+                                if prev_velocity.is_none() || prev_velocity.unwrap() != velocity {
+                                    out.write_u8(velocity)?;
+                                    velocity_out = Some(velocity);
+                                }
                             }
-                        }
-                        _ => {
-                            if prev_velocity.is_none() {
-                                out.write_u8(0x7d)?;
-                                velocity_out = Some(0x7d);
+                            _ => {
+                                if prev_velocity.is_none() {
+                                    out.write_u8(0x7d)?;
+                                    velocity_out = Some(0x7d);
+                                }
                             }
                         }
                     }
