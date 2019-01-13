@@ -1,5 +1,5 @@
-extern crate midi2spc;
 extern crate failure;
+extern crate midi2spc;
 #[macro_use]
 extern crate clap;
 
@@ -31,6 +31,7 @@ fn main() -> Result<(), Error> {
             (@arg INPUT: "the input file to use")
             (@arg OUTPUT: "the output file to use")
         )
-    ).get_matches();
+    )
+    .get_matches();
     midi2spc::run(matches)
 }

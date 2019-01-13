@@ -9,19 +9,21 @@ extern crate failure;
 #[macro_use]
 extern crate serde_derive;
 
-use std::path::{Path};
 use failure::Error;
+use std::path::Path;
 
+pub mod manifest;
 pub mod midi;
 pub mod nspc;
 pub mod rom;
-pub mod manifest;
 
 pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
-    let converter = &|path: &Path| if path.extension().map_or(false, |ext| ext.eq("mid")) {
-        song_from_midi(path)
-    } else {
-        Ok(nspc::Song::from_json(path))
+    let converter = &|path: &Path| {
+        if path.extension().map_or(false, |ext| ext.eq("mid")) {
+            song_from_midi(path)
+        } else {
+            Ok(nspc::Song::from_json(path))
+        }
     };
     if let Some(matches) = matches.subcommand_matches("build_rom") {
         let manifest_path = matches.value_of("MANIFEST");
@@ -37,7 +39,8 @@ pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
         rom::Rom::write_all_songs_as(
             Path::new(input_path.unwrap()),
             Path::new(rom_path.unwrap()),
-            converter)?;
+            converter,
+        )?;
     } else if let Some(matches) = matches.subcommand_matches("dump_midi") {
         let input_path = matches.value_of("INPUT");
         let mut midi = midi::MidiHandler::new();
