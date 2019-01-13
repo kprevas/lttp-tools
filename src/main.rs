@@ -1,8 +1,11 @@
 extern crate midi2spc;
+extern crate failure;
 #[macro_use]
 extern crate clap;
 
-fn main() {
+use failure::Error;
+
+fn main() -> Result<(), Error> {
     let matches = clap_app!(midi2spc =>
         (@setting SubcommandRequiredElseHelp)
         (@subcommand build_rom =>
@@ -29,5 +32,5 @@ fn main() {
             (@arg OUTPUT: "the output file to use")
         )
     ).get_matches();
-    midi2spc::run(matches);
+    midi2spc::run(matches)
 }

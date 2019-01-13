@@ -1,12 +1,17 @@
-extern crate itertools;
-
+use failure::Error;
 use ghakuf::messages::*;
 use ghakuf::reader::*;
-use self::itertools::Itertools;
 use std::path::Path;
 use std::cmp::max;
 use std::collections::HashSet;
 use std::collections::HashMap;
+
+#[derive(Debug, Fail)]
+enum MidiError {
+    #[fail(display = "Couldn't fit notes into available channels")]
+    CouldntFit {},
+}
+
 
 fn permute(assignments: &Vec<Vec<usize>>, idx: usize, used: &mut HashSet<usize>) -> Vec<Vec<usize>> {
     let mut permutations = Vec::new();
@@ -30,15 +35,6 @@ fn permute(assignments: &Vec<Vec<usize>>, idx: usize, used: &mut HashSet<usize>)
     permutations
 }
 
-fn delta_time(message: &Message) -> u32 {
-    match *message {
-        Message::MetaEvent { delta_time, .. } => delta_time,
-        Message::MidiEvent { delta_time, .. } => delta_time,
-        Message::SysExEvent { delta_time, .. } => delta_time,
-        _ => 0,
-    }
-}
-
 fn channel(event: &MidiEvent) -> usize {
     match *event {
         MidiEvent::NoteOff { ch, .. } => ch as usize,
@@ -54,7 +50,7 @@ fn channel(event: &MidiEvent) -> usize {
 
 fn priority(message: &Message) -> u8 {
     match *message {
-        Message::MidiEvent { delta_time, ref event } => match *event {
+        Message::MidiEvent { ref event, .. } => match *event {
             MidiEvent::NoteOff { .. } => 0,
             MidiEvent::NoteOn { .. } => 2,
             MidiEvent::PolyphonicKeyPressure { .. } => 1,
@@ -140,10 +136,10 @@ impl MidiHandler {
         }
     }
 
-    pub fn read(&mut self, path: &Path) {
+    pub fn read(&mut self, path: &Path) -> Result<(), Error> {
         {
-            let mut midi_reader = Reader::new(self, &path).unwrap();
-            midi_reader.read();
+            let mut midi_reader = Reader::new(self, path).map_err(|err| format_err!("MIDI read error: {:?}", err))?;
+            midi_reader.read().map_err(|err| format_err!("MIDI read error: {:?}", err))?;
         }
         self.tracks_to_channels();
         for mut channel in &mut self.channels {
@@ -152,9 +148,9 @@ impl MidiHandler {
             let mut active_voices = 0usize;
             for message in &channel.messages {
                 match *message {
-                    (Message::MidiEvent { delta_time, ref event }, abs_time) => {
+                    (Message::MidiEvent { ref event, .. }, abs_time) => {
                         match *event {
-                            MidiEvent::NoteOff { ch, note, velocity } => {
+                            MidiEvent::NoteOff { .. } => {
                                 if abs_time > last_interval_end {
                                     intervals.push(VoiceInterval {
                                         start: last_interval_end,
@@ -165,7 +161,7 @@ impl MidiHandler {
                                 active_voices -= 1;
                                 last_interval_end = abs_time;
                             }
-                            MidiEvent::NoteOn { ch, note, velocity } => {
+                            MidiEvent::NoteOn { .. } => {
                                 if abs_time > last_interval_end {
                                     intervals.push(VoiceInterval {
                                         start: last_interval_end,
@@ -186,7 +182,9 @@ impl MidiHandler {
         }
         let active_intervals = vec![vec![], vec![], vec![], vec![], vec![], vec![], vec![], vec![]];
         if !self.solve_voices(0, &active_intervals) {
-            panic!("Couldn't fit notes into available channels");
+            Err(Error::from(MidiError::CouldntFit {}))
+        } else {
+            Ok(())
         }
     }
 
@@ -195,7 +193,7 @@ impl MidiHandler {
             let mut abs_time = 0;
             for message in &track.messages {
                 match *message {
-                    Message::MetaEvent { delta_time, ref event, ref data } => {
+                    Message::MetaEvent { delta_time, .. } => {
                         abs_time += delta_time;
                         self.channels[0].messages.push((message.clone(), abs_time));
                     }
@@ -203,7 +201,7 @@ impl MidiHandler {
                         abs_time += delta_time;
                         self.channels[channel(event)].messages.push((message.clone(), abs_time));
                     }
-                    Message::SysExEvent { delta_time, ref event, ref data } => {
+                    Message::SysExEvent { delta_time, .. } => {
                         abs_time += delta_time;
                         self.channels[0].messages.push((message.clone(), abs_time));
                     }
@@ -286,8 +284,7 @@ impl MidiHandler {
         let mut message_box = Box::new(Vec::new());
         {
             let channels = &self.channels;
-            let mut messages = message_box.as_mut();
-            let mut abs_time = 0u32;
+            let messages = message_box.as_mut();
             let mut last_abs_time: Vec<u32> = Vec::new();
             let mut curr_event_idx: Vec<usize> = Vec::new();
             let mut last_key_pressure: Vec<Option<&Message>> = Vec::new();
@@ -296,7 +293,7 @@ impl MidiHandler {
             let mut last_channel_pressure: Vec<Option<&Message>> = Vec::new();
             let mut last_pitch_bend: Vec<Option<&Message>> = Vec::new();
             let mut active_notes: Vec<HashMap<u8, usize>> = Vec::new();
-            for i in 0..self.channels.len() {
+            for _ in 0..self.channels.len() {
                 last_abs_time.push(0);
                 curr_event_idx.push(0);
                 last_key_pressure.push(None);
@@ -309,7 +306,7 @@ impl MidiHandler {
             let mut last_channel = 0xffusize;
             let mut channels_done = channels.iter().filter(|channel| channel.messages.is_empty()).count();
             while channels_done < channels.len() {
-                let (next_channel, abs_time) = channels.iter().enumerate().min_by_key(|&(i, channel)| {
+                let (next_channel, _) = channels.iter().enumerate().min_by_key(|&(i, channel)| {
                     if curr_event_idx[i] == channel.messages.len() {
                         (u32::max_value(), u8::max_value())
                     } else {
@@ -324,23 +321,23 @@ impl MidiHandler {
                 }
 
                 match *next_event {
-                    (Message::MetaEvent { delta_time, ref event, ref data }, abs_time) => {
+                    (Message::MetaEvent { ref event, .. }, _) => {
                         if let MetaEvent::SetTempo = *event {
                             if voice == 0 {
                                 messages.push(next_event.clone())
                             }
                         }
                     }
-                    (Message::MidiEvent { delta_time, ref event }, abs_time) => {
+                    (Message::MidiEvent { ref event, .. }, abs_time) => {
                         match *event {
-                            MidiEvent::NoteOff { ch, note, velocity } => {
+                            MidiEvent::NoteOff { ch, note, .. } => {
                                 let ch = ch as usize;
                                 let note_voice = active_notes[ch].remove(&note).unwrap();
                                 if note_voice == voice {
                                     messages.push(next_event.clone());
                                 }
                             }
-                            MidiEvent::NoteOn { ch, note, velocity } => {
+                            MidiEvent::NoteOn { ch, note, .. } => {
                                 let ch = ch as usize;
                                 let next_voice = channels[next_channel].voices[active_notes[ch].len()];
                                 active_notes[ch].insert(note, next_voice);
@@ -356,27 +353,27 @@ impl MidiHandler {
                                     messages.push(next_event.clone());
                                 }
                             }
-                            MidiEvent::PolyphonicKeyPressure { ch, note, velocity } => {
+                            MidiEvent::PolyphonicKeyPressure { ch, .. } => {
                                 let ch = ch as usize;
                                 if last_channel == ch { messages.push(next_event.clone()) }
                                 last_key_pressure[ch] = Some(&next_event.0);
                             }
-                            MidiEvent::ControlChange { ch, control, data } => {
+                            MidiEvent::ControlChange { ch, .. } => {
                                 let ch = ch as usize;
                                 if last_channel == ch { messages.push(next_event.clone()) }
                                 last_ctrl_change[ch] = Some(&next_event.0);
                             }
-                            MidiEvent::ProgramChange { ch, program } => {
+                            MidiEvent::ProgramChange { ch, .. } => {
                                 let ch = ch as usize;
                                 if last_channel == ch { messages.push(next_event.clone()) }
                                 last_prog_change[ch] = Some(&next_event.0);
                             }
-                            MidiEvent::ChannelPressure { ch, pressure } => {
+                            MidiEvent::ChannelPressure { ch, .. } => {
                                 let ch = ch as usize;
                                 if last_channel == ch { messages.push(next_event.clone()) }
                                 last_channel_pressure[ch] = Some(&next_event.0);
                             }
-                            MidiEvent::PitchBendChange { ch, data } => {
+                            MidiEvent::PitchBendChange { ch, .. } => {
                                 let ch = ch as usize;
                                 if last_channel == ch { messages.push(next_event.clone()) }
                                 last_pitch_bend[ch] = Some(&next_event.0);
@@ -384,7 +381,7 @@ impl MidiHandler {
                             _ => {}
                         }
                     }
-                    (Message::SysExEvent { delta_time, ref event, ref data }, abs_time) => {
+                    (Message::SysExEvent { .. }, _) => {
                         if voice == 0 { messages.push(next_event.clone()) }
                     }
                     _ => {}
@@ -396,7 +393,7 @@ impl MidiHandler {
 }
 
 impl Handler for MidiHandler {
-    fn header(&mut self, format: u16, track: u16, time_base: u16) {
+    fn header(&mut self, format: u16, _track: u16, time_base: u16) {
         if format != 1 {
             unimplemented!("MIDI format {}", format)
         }

@@ -1,20 +1,18 @@
-use std::error::*;
+use failure::Error;
 use std::fs::*;
 use std::path::*;
-use std::io::prelude::*;
 use std::io::Write;
 use byteorder::*;
 use midi::MidiHandler;
 
 use ghakuf::messages::*;
-use serde::{Deserialize, Serialize};
 use serde_json;
 
 const TEMPO_FACTOR: f32 = 0.3;
 
 // instruments
 //0. Unknown (00)
-const UNKNOWN: u8 = 0;
+const _UNKNOWN: u8 = 0;
 //1. Rain (01)
 const RAIN: u8 = 1;
 //2. Tympani   (02)
@@ -238,143 +236,144 @@ enum Command {
 }
 
 impl Command {
-    fn write(&self, out: &mut Write) {
+    fn write(&self, out: &mut Write) -> Result<(), Error> {
         match *self {
             Command::Note(note) => {
-                out.write_u8(note);
+                out.write_u8(note)?;
             },
             Command::Tie => {
-                out.write_u8(0xc8);
+                out.write_u8(0xc8)?;
             },
             Command::Rest => {
-                out.write_u8(0xc9);
+                out.write_u8(0xc9)?;
             },
             Command::SetInstrument(p1) => {
-                out.write_u8(0xe0);
-                out.write_u8(p1);
+                out.write_u8(0xe0)?;
+                out.write_u8(p1)?;
             },
             Command::Pan(p1) => {
-                out.write_u8(0xe1);
-                out.write_u8(p1);
+                out.write_u8(0xe1)?;
+                out.write_u8(p1)?;
             },
             Command::PanFade(p1, p2) => {
-                out.write_u8(0xe2);
-                out.write_u8(p1);
-                out.write_u8(p2);
+                out.write_u8(0xe2)?;
+                out.write_u8(p1)?;
+                out.write_u8(p2)?;
             },
             Command::Vibrato(p1, p2, p3) => {
-                out.write_u8(0xe3);
-                out.write_u8(p1);
-                out.write_u8(p2);
-                out.write_u8(p3);
+                out.write_u8(0xe3)?;
+                out.write_u8(p1)?;
+                out.write_u8(p2)?;
+                out.write_u8(p3)?;
             },
             Command::VibratoOff => {
-                out.write_u8(0xe4);
+                out.write_u8(0xe4)?;
             },
             Command::MasterVolume(p1) => {
-                out.write_u8(0xe5);
-                out.write_u8(p1);
+                out.write_u8(0xe5)?;
+                out.write_u8(p1)?;
             },
             Command::MasterVolumeFade(p1, p2) => {
-                out.write_u8(0xe6);
-                out.write_u8(p1);
-                out.write_u8(p2);
+                out.write_u8(0xe6)?;
+                out.write_u8(p1)?;
+                out.write_u8(p2)?;
             },
             Command::Tempo(p1) => {
-                out.write_u8(0xe7);
-                out.write_u8(p1);
+                out.write_u8(0xe7)?;
+                out.write_u8(p1)?;
             },
             Command::TempoFade(p1, p2) => {
-                out.write_u8(0xe8);
-                out.write_u8(p1);
-                out.write_u8(p2);
+                out.write_u8(0xe8)?;
+                out.write_u8(p1)?;
+                out.write_u8(p2)?;
             },
             Command::GlobalTranspose(p1) => {
-                out.write_u8(0xe9);
-                out.write_u8(p1);
+                out.write_u8(0xe9)?;
+                out.write_u8(p1)?;
             },
             Command::ChannelTranspose(p1) => {
-                out.write_u8(0xea);
-                out.write_u8(p1);
+                out.write_u8(0xea)?;
+                out.write_u8(p1)?;
             },
             Command::Tremolo(p1, p2, p3) => {
-                out.write_u8(0xeb);
-                out.write_u8(p1);
-                out.write_u8(p2);
-                out.write_u8(p3);
+                out.write_u8(0xeb)?;
+                out.write_u8(p1)?;
+                out.write_u8(p2)?;
+                out.write_u8(p3)?;
             },
             Command::TremoloOff => {
-                out.write_u8(0xec);
+                out.write_u8(0xec)?;
             },
             Command::ChannelVolume(p1) => {
-                out.write_u8(0xed);
-                out.write_u8(p1);
+                out.write_u8(0xed)?;
+                out.write_u8(p1)?;
             },
             Command::ChannelVolumeFade(p1) => {
-                out.write_u8(0xee);
-                out.write_u8(p1);
+                out.write_u8(0xee)?;
+                out.write_u8(p1)?;
             },
             Command::CallLoop(p1, p2, p3) => {
-                out.write_u8(0xef);
-                out.write_u8(p1);
-                out.write_u8(p2);
-                out.write_u8(p3);
+                out.write_u8(0xef)?;
+                out.write_u8(p1)?;
+                out.write_u8(p2)?;
+                out.write_u8(p3)?;
             },
             Command::VibratoFade(p1) => {
-                out.write_u8(0xf0);
-                out.write_u8(p1);
+                out.write_u8(0xf0)?;
+                out.write_u8(p1)?;
             },
             Command::PitchEnvelopeTo(p1, p2, p3) => {
-                out.write_u8(0xf1);
-                out.write_u8(p1);
-                out.write_u8(p2);
-                out.write_u8(p3);
+                out.write_u8(0xf1)?;
+                out.write_u8(p1)?;
+                out.write_u8(p2)?;
+                out.write_u8(p3)?;
             },
             Command::PitchEnvelopeFrom(p1, p2, p3) => {
-                out.write_u8(0xf2);
-                out.write_u8(p1);
-                out.write_u8(p2);
-                out.write_u8(p3);
+                out.write_u8(0xf2)?;
+                out.write_u8(p1)?;
+                out.write_u8(p2)?;
+                out.write_u8(p3)?;
             },
             Command::PitchEnvelopeOff => {
-                out.write_u8(0xf3);
+                out.write_u8(0xf3)?;
             },
             Command::Tuning(p1) => {
-                out.write_u8(0xf4);
-                out.write_u8(p1);
+                out.write_u8(0xf4)?;
+                out.write_u8(p1)?;
             },
             Command::EchoVolume(p1, p2, p3) => {
-                out.write_u8(0xf5);
-                out.write_u8(p1);
-                out.write_u8(p2);
-                out.write_u8(p3);
+                out.write_u8(0xf5)?;
+                out.write_u8(p1)?;
+                out.write_u8(p2)?;
+                out.write_u8(p3)?;
             },
             Command::EchoOff => {
-                out.write_u8(0xf6);
+                out.write_u8(0xf6)?;
             },
             Command::EchoParams(p1, p2, p3) => {
-                out.write_u8(0xf7);
-                out.write_u8(p1);
-                out.write_u8(p2);
-                out.write_u8(p3);
+                out.write_u8(0xf7)?;
+                out.write_u8(p1)?;
+                out.write_u8(p2)?;
+                out.write_u8(p3)?;
             },
             Command::EchoVolumeFade(p1, p2, p3) => {
-                out.write_u8(0xf8);
-                out.write_u8(p1);
-                out.write_u8(p2);
-                out.write_u8(p3);
+                out.write_u8(0xf8)?;
+                out.write_u8(p1)?;
+                out.write_u8(p2)?;
+                out.write_u8(p3)?;
             },
             Command::PitchSlide(p1, p2, p3) => {
-                out.write_u8(0xf9);
-                out.write_u8(p1);
-                out.write_u8(p2);
-                out.write_u8(p3);
+                out.write_u8(0xf9)?;
+                out.write_u8(p1)?;
+                out.write_u8(p2)?;
+                out.write_u8(p3)?;
             },
             Command::PercussionPatchBase(p1) => {
-                out.write_u8(0xfa);
-                out.write_u8(p1);
+                out.write_u8(0xfa)?;
+                out.write_u8(p1)?;
             },
         };
+        Ok(())
     }
 }
 
@@ -386,23 +385,23 @@ struct ParameterizedCommand {
 }
 
 impl ParameterizedCommand {
-    fn write(&self, out: &mut Write, prev_duration: u8, prev_velocity: Option<u8>) -> (u8, Option<u8>) {
+    fn write(&self, out: &mut Write, prev_duration: u8, prev_velocity: Option<u8>) -> Result<(u8, Option<u8>), Error> {
         let mut duration_out = prev_duration;
         let mut velocity_out = prev_velocity;
         match self.duration {
             Some(duration) => {
                 if duration != prev_duration {
-                    out.write_u8(duration);
+                    out.write_u8(duration)?;
                     match self.velocity {
                         Some(velocity) => {
                             if prev_velocity.is_none() || prev_velocity.unwrap() != velocity {
-                                out.write_u8(velocity);
+                                out.write_u8(velocity)?;
                                 velocity_out = Some(velocity);
                             }
                         },
                         _ => {
                             if prev_velocity.is_none() {
-                                out.write_u8(0x7d);
+                                out.write_u8(0x7d)?;
                                 velocity_out = Some(0x7d);
                             }
                         },
@@ -412,8 +411,8 @@ impl ParameterizedCommand {
             },
             _ => {},
         }
-        self.command.write(out);
-        (duration_out, velocity_out)
+        self.command.write(out)?;
+        Ok((duration_out, velocity_out))
     }
 }
 
@@ -453,7 +452,7 @@ impl Track {
     fn insert_rest(commands: &mut Vec<ParameterizedCommand>, last_note_end: u32, abs_time: u32, ticks_per_beat: u16) -> u32 {
         if abs_time > last_note_end {
             let duration = Track::get_duration(abs_time - last_note_end, ticks_per_beat, false);
-            for i in 0..duration.overflow_count {
+            for _ in 0..duration.overflow_count {
                 commands.push(ParameterizedCommand {
                     duration: Some(0x7f),
                     velocity: None,
@@ -478,7 +477,7 @@ impl Track {
         let mut last_ch11_instr = 0;
         for &(ref message, abs_time) in events.as_ref() {
             match *message {
-                Message::MetaEvent { delta_time, ref event, ref data } => {
+                Message::MetaEvent { ref event, ref data, .. } => {
                     if let MetaEvent::SetTempo = *event {
                         last_note_end = Track::insert_rest(&mut commands, last_note_end, abs_time, ticks_per_beat);
                         let usec_per_beat = (data[0] as u32) * 0x10000 + (data[1] as u32) * 0x100 + (data[2] as u32);
@@ -490,9 +489,9 @@ impl Track {
                         })
                     }
                 }
-                Message::MidiEvent { delta_time, ref event } => {
+                Message::MidiEvent { ref event, .. } => {
                     match *event {
-                        MidiEvent::NoteOff { ch, note, velocity } => {
+                        MidiEvent::NoteOff { ch, note, .. } => {
                             if let Some(start) = note_start {
                                 let duration = Track::get_duration(abs_time - start, ticks_per_beat, true);
                                 if ch == 10 {
@@ -527,17 +526,17 @@ impl Track {
                                 note_start = None;
                             }
                         }
-                        MidiEvent::NoteOn { ch, note, velocity } => {
+                        MidiEvent::NoteOn { ch, .. } => {
                             last_note_end = Track::insert_rest(&mut commands, last_note_end, abs_time, ticks_per_beat);
                             if note_start.is_some() {
                                 panic!("More than one voice needed on channel {}", ch);
                             }
                             note_start = Some(abs_time)
                         }
-                        MidiEvent::PolyphonicKeyPressure { ch, note, velocity } => {
+                        MidiEvent::PolyphonicKeyPressure { .. } => {
                             // TODO
                         }
-                        MidiEvent::ControlChange { ch, control, data } => {
+                        MidiEvent::ControlChange { control, data, .. } => {
                             match control {
                                 7 => {  // channel volume
                                     commands.push(ParameterizedCommand {
@@ -550,7 +549,7 @@ impl Track {
                             }
                             // TODO
                         }
-                        MidiEvent::ProgramChange { ch, program } => {
+                        MidiEvent::ProgramChange { program, .. } => {
                             last_note_end = Track::insert_rest(&mut commands, last_note_end, abs_time, ticks_per_beat);
                             commands.push(ParameterizedCommand {
                                 duration: None,
@@ -558,16 +557,16 @@ impl Track {
                                 command: Command::SetInstrument(INSTRUMENT_MAP[program as usize])
                             })
                         }
-                        MidiEvent::ChannelPressure { ch, pressure } => {
+                        MidiEvent::ChannelPressure { .. } => {
                             // TODO
                         }
-                        MidiEvent::PitchBendChange { ch, data } => {
+                        MidiEvent::PitchBendChange { .. } => {
                             // TODO
                         }
                         _ => {}
                     }
                 }
-                Message::SysExEvent { delta_time, ref event, ref data } => {
+                Message::SysExEvent { .. } => {
                     // TODO (global volume?)
                 }
                 _ => {}
@@ -578,14 +577,15 @@ impl Track {
         }
     }
 
-    fn write(&self, out: &mut Write) {
+    fn write(&self, out: &mut Write) -> Result<(), Error> {
         let mut duration = 0xff;
         let mut velocity = None;
-        self.commands.iter().for_each(|c| {
-            let (duration_out, velocity_out) = c.write(out, duration, velocity);
+        for cmd in &self.commands {
+            let (duration_out, velocity_out) = cmd.write(out, duration, velocity)?;
             duration = duration_out;
             velocity = velocity_out;
-        });
+        };
+        Ok(())
     }
 }
 
@@ -602,13 +602,13 @@ pub struct Song {
 
 impl Song {
     pub fn from_midi(midi: &MidiHandler) -> Song {
-        let mut tracks: Vec<Track> = (0..16).map(|voice| {
+        let tracks: Vec<Track> = (0..16).map(|voice| {
             Track::new(midi.events_for_voice(voice), midi.ticks_per_beat)
         })
             .filter(|track| !track.commands.is_empty())
             .collect();
         let mut parts = Vec::new();
-        let mut part = Part {
+        let part = Part {
             tracks: tracks.iter().enumerate().map(|(i, _)| i).collect(),
         };
         parts.push(part);
@@ -636,17 +636,18 @@ impl Song {
         self.tracks.len()
     }
 
-    pub fn write_track(&self, out: &mut Write, track_idx: usize) {
+    pub fn write_track(&self, out: &mut Write, track_idx: usize) -> Result<(), Error> {
         let track = &self.tracks[track_idx];
         if !track.commands.is_empty() {
             if self.parts.iter().any(|part| part.tracks[0] == track_idx) {
-                out.write(&PREAMBLE_TRACK_0);
+                out.write(&PREAMBLE_TRACK_0)?;
             } else {
-                out.write(&PREAMBLE_OTHER_TRACK);
+                out.write(&PREAMBLE_OTHER_TRACK)?;
             }
-            track.write(out);
-            out.write_u8(0x00);
-            out.write_u8(0x00);
+            track.write(out)?;
+            out.write_u8(0x00)?;
+            out.write_u8(0x00)?;
         }
+        Ok(())
     }
 }

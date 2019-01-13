@@ -1,15 +1,15 @@
+use failure::Error;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::io::SeekFrom;
-use std::io::Cursor;
 use std::path::Path;
 
 use manifest::*;
 use nspc::Song;
 
-const BANK_BASE_ADDRS: [u32;3] = [0x914, 0x926, 0x932];
-const BANK_FIRST_SONG_ADDRS: [usize;3] = [0xD036, 0xD046, 0xD046];
+const BANK_BASE_ADDRS: [u32; 3] = [0x914, 0x926, 0x932];
+const BANK_FIRST_SONG_ADDRS: [usize; 3] = [0xD036, 0xD046, 0xD046];
 const ARAM_BASE: usize = 0xd000;
 
 fn snes_to_pc_addr(snes_addr: u32) -> usize {
@@ -46,18 +46,17 @@ impl Chunk {
     }
 }
 
-struct SongBank {
-}
+struct SongBank {}
 
 impl SongBank {
     fn read(romdata: &Vec<u8>, addr: u32) -> SongBank {
         let bank = romdata[snes_to_pc_addr(addr + 8)];
-        let high= romdata[snes_to_pc_addr(addr + 4)];
-        let low= romdata[snes_to_pc_addr(addr)];
+        let high = romdata[snes_to_pc_addr(addr + 4)];
+        let low = romdata[snes_to_pc_addr(addr)];
 
         let mut addr = snes_bytes_to_pc_addr(bank, high, low);
 
-        let mut aram = [0u8;0xffff];
+        let mut aram = [0u8; 0xffff];
 
         let mut last_chunk_length = 0xffffusize;
         while last_chunk_length != 0 {
@@ -69,9 +68,6 @@ impl SongBank {
             println!("Chunk found at {:X} target {:X} length {:X}", chunk.offset_addr, chunk.aram_addr, chunk.length);
         }
 
-        let mut lowest_song_data = 0xffffusize;
-        let mut song_index = 0xd000usize;
-
         // TODO read songs
 
         SongBank {}
@@ -79,41 +75,44 @@ impl SongBank {
 }
 
 pub struct Rom {
-    base: SongBank,
+    _base: SongBank,
 }
 
 impl Rom {
-    pub fn load(path: &Path) -> Rom {
-        let mut file = File::open(path).unwrap();
+    pub fn load(path: &Path) -> Result<Rom, Error> {
+        let mut file = File::open(path)?;
         let mut romdata = Vec::new();
-        file.read_to_end(&mut romdata);
+        file.read_to_end(&mut romdata)?;
 
         let bank1 = SongBank::read(&romdata, BANK_BASE_ADDRS[0]);
-        let bank2 = SongBank::read(&romdata, BANK_BASE_ADDRS[1]);
-        let bank3 = SongBank::read(&romdata, BANK_BASE_ADDRS[2]);
+        let _bank2 = SongBank::read(&romdata, BANK_BASE_ADDRS[1]);
+        let _bank3 = SongBank::read(&romdata, BANK_BASE_ADDRS[2]);
 
-        Rom {
-            base: bank1
-        }
+        Ok(Rom {
+            _base: bank1
+        })
     }
 
-    pub fn write(manifest: &Manifest, path: &Path, converter: &Fn(&Path) -> Song) {
-        let mut file = OpenOptions::new().read(true).write(true).open(path).unwrap();
+    pub fn write(manifest: &Manifest, path: &Path, converter: &Fn(&Path) -> Result<Song, Error>) -> Result<(), Error> {
+        let mut file = OpenOptions::new().read(true).write(true).open(path)?;
         let mut romdata = Vec::new();
-        file.read_to_end(&mut romdata);
+        file.read_to_end(&mut romdata)?;
 
-        manifest.banks.iter().enumerate().fold(0, |first_song, (i, bank)| {
-            Rom::write_bank(bank,
-                            &mut romdata,
-                            BANK_BASE_ADDRS[i],
-                            BANK_FIRST_SONG_ADDRS[i],
-                            first_song,
-                            converter);
-            first_song + bank.songs.len()
-        });
+        manifest.banks.iter().enumerate().fold(Ok(0), |first_song_result: Result<usize, Error>, (i, bank)| {
+            first_song_result.and_then(|first_song| {
+                Rom::write_bank(bank,
+                                &mut romdata,
+                                BANK_BASE_ADDRS[i],
+                                BANK_FIRST_SONG_ADDRS[i],
+                                first_song,
+                                converter)?;
+                Ok(first_song + bank.songs.len())
+            })
+        })?;
 
-        file.seek(SeekFrom::Start(0));
-        file.write(&romdata);
+        file.seek(SeekFrom::Start(0))?;
+        file.write(&romdata)?;
+        Ok(())
     }
 
     fn write_bank(bank: &Bank,
@@ -121,7 +120,7 @@ impl Rom {
                   base_addr: u32,
                   first_song_addr: usize,
                   first_song: usize,
-                  converter: &Fn(&Path) -> Song) {
+                  converter: &Fn(&Path) -> Result<Song, Error>) -> Result<(), Error> {
         // find chunk going to ARAM D000
         let bank_addr = romdata[snes_to_pc_addr(base_addr + 8)];
         let high_addr = romdata[snes_to_pc_addr(base_addr + 4)];
@@ -161,7 +160,7 @@ impl Rom {
         let mut song_offset = first_song_addr - aram_base_addr;
 
         for song_def in &bank.songs {
-            let song_data = converter(song_def.input.as_path());
+            let song_data = converter(song_def.input.as_path())?;
 
             // check if non-track data fits in chunk
             if song_offset + (if song_def.loops { 8 } else { 4 }) + 16 > chunk_length {
@@ -213,7 +212,7 @@ impl Rom {
 
             for i in 0..song_data.get_num_tracks() {
                 let mut track_data = Vec::<u8>::new();
-                song_data.write_track(&mut track_data, i);
+                song_data.write_track(&mut track_data, i)?;
 
                 // check if track data fits in chunk
                 if track_data_offset + track_data.len() > chunk_length {
@@ -226,10 +225,10 @@ impl Rom {
                 };
 
                 println!("Writing track to 0x{:X} (0x{:X})",
-                        rom_addr + track_data_offset, aram_base_addr + track_data_offset);
+                         rom_addr + track_data_offset, aram_base_addr + track_data_offset);
                 if track_data.len() > 0 {
                     romdata.splice((rom_addr + track_data_offset)..(rom_addr + track_data_offset + track_data.len()),
-                            track_data.iter().cloned());
+                                   track_data.iter().cloned());
                     track_addrs.push(aram_base_addr + track_data_offset);
                     track_data_offset += track_data.len();
                 } else {
@@ -256,9 +255,11 @@ impl Rom {
         for i in song_table_addr..(base_chunk_addr + first_song_addr - ARAM_BASE) {
             romdata[i] = 0x00;
         }
+        Ok(())
     }
 
-    pub fn write_all_songs_as(song_path: &Path, rom_path: &Path, converter: &Fn(&Path) -> Song) {
-        Rom::write(&Manifest::single_song(song_path), rom_path, converter);
+    pub fn write_all_songs_as(song_path: &Path, rom_path: &Path, converter: &Fn(&Path) -> Result<Song, Error>) -> Result<(), Error> {
+        Rom::write(&Manifest::single_song(song_path), rom_path, converter)?;
+        Ok(())
     }
 }
