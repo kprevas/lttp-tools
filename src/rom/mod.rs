@@ -2,11 +2,11 @@ use failure::Error;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
-use std::io::SeekFrom;
+use std::io::{Cursor, SeekFrom};
 use std::path::Path;
 
 use manifest::*;
-use nspc::Song;
+use nspc::{CallLoopRef, Song};
 
 const BANK_BASE_ADDRS: [u32; 3] = [0x914, 0x926, 0x932];
 const BANK_FIRST_SONG_ADDRS: [usize; 3] = [0xD036, 0xD046, 0xD046];
@@ -241,9 +241,14 @@ impl Rom {
             let mut track_data_offset = part_data_offset + 16;
             let mut track_addrs = Vec::<usize>::new();
 
+            let mut call_loops = Vec::<CallLoopRef>::new();
+
             for i in 0..song_data.get_num_tracks() {
-                let mut track_data = Vec::<u8>::new();
-                song_data.write_track(&mut track_data, i)?;
+                let track_data = Vec::<u8>::new();
+                let mut track_call_loops = Vec::<CallLoopRef>::new();
+                let mut cursor = Cursor::new(track_data);
+                song_data.write_track(&mut cursor, i, &mut track_call_loops)?;
+                let track_data = cursor.into_inner();
 
                 // check if track data fits in chunk
                 if track_data_offset + track_data.len() > chunk_length {
@@ -271,6 +276,12 @@ impl Rom {
                         track_data.iter().cloned(),
                     );
                     track_addrs.push(aram_base_addr + track_data_offset);
+                    track_call_loops.iter().for_each(|call_loop| {
+                        call_loops.push(CallLoopRef {
+                            target_track: call_loop.target_track,
+                            ref_pos: track_data_offset as u64 + call_loop.ref_pos,
+                        })
+                    });
                     track_data_offset += track_data.len();
                 } else {
                     track_addrs.push(0);
@@ -295,6 +306,17 @@ impl Rom {
                 romdata[part_data_addr + 1] = track_bytes.0;
                 romdata[part_data_addr] = track_bytes.1;
                 part_data_addr += 2;
+            });
+
+            call_loops.iter().for_each(|call_loop| {
+                let call_loop_addr = rom_addr + (call_loop.ref_pos as usize);
+                println!(
+                    "Writing loop address 0x{:X} to CallLoop instruction at 0x{:X}",
+                    track_addrs[call_loop.target_track], call_loop_addr
+                );
+                let track_bytes = addr_to_bytes(track_addrs[call_loop.target_track]);
+                romdata[call_loop_addr + 1] = track_bytes.0;
+                romdata[call_loop_addr] = track_bytes.1;
             });
 
             song_offset = track_data_offset;

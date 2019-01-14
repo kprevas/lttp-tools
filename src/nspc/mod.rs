@@ -2,7 +2,7 @@ use byteorder::*;
 use failure::Error;
 use midi::MidiHandler;
 use std::fs::*;
-use std::io::Write;
+use std::io::{Cursor, Write};
 use std::path::*;
 
 use ghakuf::messages::*;
@@ -201,6 +201,12 @@ const PREAMBLE_OTHER_TRACK: [u8; 2] = [
     0xed, 0xc8, // channel volume
 ];
 
+#[derive(Copy, Clone, Debug)]
+pub struct CallLoopRef {
+    pub target_track: usize,
+    pub ref_pos: u64,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 enum Command {
     Note(u8),
@@ -236,7 +242,11 @@ enum Command {
 }
 
 impl Command {
-    fn write(&self, out: &mut Write) -> Result<(), Error> {
+    fn write(
+        &self,
+        out: &mut Cursor<Vec<u8>>,
+        call_loops: &mut Vec<CallLoopRef>,
+    ) -> Result<(), Error> {
         match *self {
             Command::Note(note) => {
                 out.write_u8(note)?;
@@ -312,9 +322,12 @@ impl Command {
                 out.write_u8(0xee)?;
                 out.write_u8(p1)?;
             }
-            Command::CallLoop(_p1, p2) => {
+            Command::CallLoop(p1, p2) => {
                 out.write_u8(0xef)?;
-                // TODO record track reference (p1)
+                call_loops.push(CallLoopRef {
+                    target_track: p1,
+                    ref_pos: out.position(),
+                });
                 out.write_u8(0x00)?;
                 out.write_u8(0xd0)?;
                 out.write_u8(p2)?;
@@ -388,9 +401,10 @@ struct ParameterizedCommand {
 impl ParameterizedCommand {
     fn write(
         &self,
-        out: &mut Write,
+        out: &mut Cursor<Vec<u8>>,
         prev_duration: u8,
         prev_velocity: Option<u8>,
+        call_loops: &mut Vec<CallLoopRef>,
     ) -> Result<(u8, Option<u8>), Error> {
         let mut duration_out = prev_duration;
         let mut velocity_out = prev_velocity;
@@ -419,7 +433,7 @@ impl ParameterizedCommand {
             }
             _ => {}
         }
-        self.command.write(out)?;
+        self.command.write(out, call_loops)?;
         Ok((duration_out, velocity_out))
     }
 }
@@ -622,11 +636,15 @@ impl Track {
         Ok(Track { commands })
     }
 
-    fn write(&self, out: &mut Write) -> Result<(), Error> {
+    fn write(
+        &self,
+        out: &mut Cursor<Vec<u8>>,
+        call_loops: &mut Vec<CallLoopRef>,
+    ) -> Result<(), Error> {
         let mut duration = 0xff;
         let mut velocity = None;
         for cmd in &self.commands {
-            let (duration_out, velocity_out) = cmd.write(out, duration, velocity)?;
+            let (duration_out, velocity_out) = cmd.write(out, duration, velocity, call_loops)?;
             duration = duration_out;
             velocity = velocity_out;
         }
@@ -692,7 +710,12 @@ impl Song {
         self.tracks.len()
     }
 
-    pub fn write_track(&self, out: &mut Write, track_idx: usize) -> Result<(), Error> {
+    pub fn write_track(
+        &self,
+        out: &mut Cursor<Vec<u8>>,
+        track_idx: usize,
+        call_loops: &mut Vec<CallLoopRef>,
+    ) -> Result<(), Error> {
         let track = &self.tracks[track_idx];
         if !track.commands.is_empty() {
             if self.parts.iter().any(|part| part.tracks[0] == track_idx) {
@@ -700,7 +723,7 @@ impl Song {
             } else {
                 out.write(&PREAMBLE_OTHER_TRACK)?;
             }
-            track.write(out)?;
+            track.write(out, call_loops)?;
             out.write_u8(0x00)?;
             out.write_u8(0x00)?;
         }
