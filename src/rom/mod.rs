@@ -98,7 +98,7 @@ impl Rom {
     pub fn write(
         manifest: &Manifest,
         path: &Path,
-        converter: &Fn(&Path) -> Result<Song, Error>,
+        converter: &Fn(&Path, f32) -> Result<Song, Error>,
     ) -> Result<(), Error> {
         let mut file = OpenOptions::new().read(true).write(true).open(path)?;
         let mut romdata = Vec::new();
@@ -132,7 +132,7 @@ impl Rom {
         base_addr: u32,
         first_song_addr: usize,
         first_song: usize,
-        converter: &Fn(&Path) -> Result<Song, Error>,
+        converter: &Fn(&Path, f32) -> Result<Song, Error>,
     ) -> Result<(), Error> {
         // find chunk going to ARAM D000
         let bank_addr = romdata[snes_to_pc_addr(base_addr + 8)];
@@ -183,7 +183,7 @@ impl Rom {
         let mut song_offset = first_song_addr - aram_base_addr;
 
         for song_def in &bank.songs {
-            let song_data = converter(song_def.input.as_path())?;
+            let song_data = converter(song_def.input.as_path(), song_def.tempo_factor)?;
 
             // check if non-track data fits in chunk
             if song_offset + (if song_def.loops { 8 } else { 4 }) + 16 > chunk_length {
@@ -330,7 +330,7 @@ impl Rom {
     pub fn write_all_songs_as(
         song_path: &Path,
         rom_path: &Path,
-        converter: &Fn(&Path) -> Result<Song, Error>,
+        converter: &Fn(&Path, f32) -> Result<Song, Error>,
     ) -> Result<(), Error> {
         Rom::write(&Manifest::single_song(song_path), rom_path, converter)?;
         Ok(())

@@ -8,8 +8,6 @@ use std::path::*;
 use ghakuf::messages::*;
 use serde_json;
 
-const TEMPO_FACTOR: f32 = 0.3;
-
 // instruments
 //0. Unknown (00)
 const _UNKNOWN: u8 = 0;
@@ -500,7 +498,11 @@ impl Track {
         }
     }
 
-    fn new(events: Box<Vec<(Message, u32)>>, ticks_per_beat: u16) -> Result<Track, Error> {
+    fn new(
+        events: Box<Vec<(Message, u32)>>,
+        ticks_per_beat: u16,
+        tempo_factor: f32,
+    ) -> Result<Track, Error> {
         let mut commands = Vec::new();
         let mut note_start: Option<u32> = None;
         let mut last_note_end = 0u32;
@@ -526,7 +528,7 @@ impl Track {
                         commands.push(ParameterizedCommand {
                             duration: None,
                             velocity: None,
-                            command: Command::Tempo((bpm as f32 * TEMPO_FACTOR) as u8),
+                            command: Command::Tempo((bpm as f32 * tempo_factor) as u8),
                         })
                     }
                 }
@@ -664,10 +666,14 @@ pub struct Song {
 }
 
 impl Song {
-    pub fn from_midi(midi: &MidiHandler) -> Result<Song, Error> {
+    pub fn from_midi(midi: &MidiHandler, tempo_factor: f32) -> Result<Song, Error> {
         let tracks: Result<Vec<Track>, Error> = (0..16)
             .filter_map(|voice| {
-                match Track::new(midi.events_for_voice(voice), midi.ticks_per_beat) {
+                match Track::new(
+                    midi.events_for_voice(voice),
+                    midi.ticks_per_beat,
+                    tempo_factor,
+                ) {
                     Ok(track) => {
                         if track.commands.is_empty() {
                             None

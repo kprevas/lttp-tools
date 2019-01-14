@@ -3,7 +3,7 @@ use serde_json::Value;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-const DEFAULT_TEMPO_ADJUST: f64 = 0.3;
+pub const DEFAULT_TEMPO_ADJUST: f32 = 0.3;
 
 const OVERWORLD_SONGS: [&str; 15] = [
     "Title",
@@ -55,7 +55,7 @@ impl Song {
             input: PathBuf::from(input["input"].as_str().unwrap()),
             tempo_factor: input["tempoAdjust"]
                 .as_f64()
-                .unwrap_or(DEFAULT_TEMPO_ADJUST) as f32,
+                .unwrap_or(DEFAULT_TEMPO_ADJUST as f64) as f32,
             loops: input["loop"].as_bool().unwrap_or(true),
         }
     }

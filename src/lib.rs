@@ -18,9 +18,9 @@ pub mod nspc;
 pub mod rom;
 
 pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
-    let converter = &|path: &Path| {
+    let converter = &|path: &Path, tempo_factor| {
         if path.extension().map_or(false, |ext| ext.eq("mid")) {
-            song_from_midi(path)
+            song_from_midi(path, tempo_factor)
         } else {
             Ok(nspc::Song::from_json(path))
         }
@@ -51,14 +51,14 @@ pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
         let output_path = matches.value_of("OUTPUT");
         let mut midi = midi::MidiHandler::new();
         midi.read(Path::new(input_path.unwrap()))?;
-        let song = nspc::Song::from_midi(&midi)?;
+        let song = nspc::Song::from_midi(&midi, manifest::DEFAULT_TEMPO_ADJUST)?;
         song.write_to_json(Path::new(output_path.unwrap()));
     }
     Ok(())
 }
 
-fn song_from_midi(path: &Path) -> Result<nspc::Song, Error> {
+fn song_from_midi(path: &Path, tempo_factor: f32) -> Result<nspc::Song, Error> {
     let mut midi = midi::MidiHandler::new();
     midi.read(path)?;
-    nspc::Song::from_midi(&midi)
+    nspc::Song::from_midi(&midi, tempo_factor)
 }
