@@ -10,26 +10,29 @@ fn main() -> Result<(), Error> {
         (@setting SubcommandRequiredElseHelp)
         (@subcommand build_rom =>
             (about: "build a ROM according to a manifest file")
-            (@arg MANIFEST: "the manifest file to use")
-            (@arg ROM: "the ROM file to use")
+            (@arg MANIFEST: +required "the manifest file to use")
+            (@arg ROM: +required "the ROM file to use")
+            (@arg bank_addrs: --bank_addrs #{3,3} +use_delimiter "song bank addresses in the ROM")
         )
         (@subcommand load_rom =>
             (about: "load in existing songs from a ROM")
-            (@arg ROM: "the ROM file to use")
+            (@arg ROM: +required "the ROM file to use")
+            (@arg bank_addrs: --bank_addrs #{3,3} +use_delimiter "song bank addresses in the ROM")
         )
         (@subcommand all_overworld =>
             (about: "convert a MIDI or JSON file and replace all music with it")
-            (@arg INPUT: "the input file to use")
-            (@arg ROM: "the ROM file to use")
+            (@arg INPUT: +required "the input file to use")
+            (@arg ROM: +required "the ROM file to use")
+            (@arg bank_addrs: --bank_addrs #{3,3} +use_delimiter "song bank addresses in the ROM")
         )
         (@subcommand dump_midi =>
             (about: "read a MIDI file and dump it to stdout")
-            (@arg INPUT: "the input file to use")
+            (@arg INPUT: +required "the input file to use")
         )
         (@subcommand midi2json =>
             (about: "convert a MIDI file to NSPC commands in JSON")
-            (@arg INPUT: "the input file to use")
-            (@arg OUTPUT: "the output file to use")
+            (@arg INPUT: +required "the input file to use")
+            (@arg OUTPUT: +required "the output file to use")
         )
     )
     .get_matches();

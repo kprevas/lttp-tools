@@ -8,7 +8,7 @@ use std::path::Path;
 use manifest::*;
 use nspc::{CallLoopRef, Song};
 
-const BANK_BASE_ADDRS: [u32; 3] = [0x914, 0x926, 0x932];
+pub const DEFAULT_BANK_BASE_ADDRS: [u32; 3] = [0x914, 0x926, 0x932];
 const BANK_FIRST_SONG_ADDRS: [usize; 3] = [0xD036, 0xD046, 0xD046];
 const ARAM_BASE: usize = 0xd000;
 
@@ -83,14 +83,14 @@ pub struct Rom {
 }
 
 impl Rom {
-    pub fn load(path: &Path) -> Result<Rom, Error> {
+    pub fn load(path: &Path, bank_base_addrs: [u32; 3]) -> Result<Rom, Error> {
         let mut file = File::open(path)?;
         let mut romdata = Vec::new();
         file.read_to_end(&mut romdata)?;
 
-        let bank1 = SongBank::read(&romdata, BANK_BASE_ADDRS[0]);
-        let _bank2 = SongBank::read(&romdata, BANK_BASE_ADDRS[1]);
-        let _bank3 = SongBank::read(&romdata, BANK_BASE_ADDRS[2]);
+        let bank1 = SongBank::read(&romdata, bank_base_addrs[0]);
+        let _bank2 = SongBank::read(&romdata, bank_base_addrs[1]);
+        let _bank3 = SongBank::read(&romdata, bank_base_addrs[2]);
 
         Ok(Rom { _base: bank1 })
     }
@@ -98,6 +98,7 @@ impl Rom {
     pub fn write(
         manifest: &Manifest,
         path: &Path,
+        bank_base_addrs: [u32; 3],
         converter: &Fn(&Path, f32) -> Result<Song, Error>,
     ) -> Result<(), Error> {
         let mut file = OpenOptions::new().read(true).write(true).open(path)?;
@@ -111,7 +112,7 @@ impl Rom {
                     Rom::write_bank(
                         bank,
                         &mut romdata,
-                        BANK_BASE_ADDRS[i],
+                        bank_base_addrs[i],
                         BANK_FIRST_SONG_ADDRS[i],
                         first_song,
                         converter,
@@ -330,9 +331,15 @@ impl Rom {
     pub fn write_all_songs_as(
         song_path: &Path,
         rom_path: &Path,
+        bank_base_addrs: [u32; 3],
         converter: &Fn(&Path, f32) -> Result<Song, Error>,
     ) -> Result<(), Error> {
-        Rom::write(&Manifest::single_song(song_path), rom_path, converter)?;
+        Rom::write(
+            &Manifest::single_song(song_path),
+            rom_path,
+            bank_base_addrs,
+            converter,
+        )?;
         Ok(())
     }
 }

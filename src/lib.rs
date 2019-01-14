@@ -9,7 +9,9 @@ extern crate failure;
 #[macro_use]
 extern crate serde_derive;
 
+use clap::ArgMatches;
 use failure::Error;
+use std::num::ParseIntError;
 use std::path::Path;
 
 pub mod manifest;
@@ -29,16 +31,22 @@ pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
         let manifest_path = matches.value_of("MANIFEST");
         let rom_path = matches.value_of("ROM");
         let manifest = manifest::Manifest::new(Path::new(manifest_path.unwrap()));
-        rom::Rom::write(&manifest, Path::new(rom_path.unwrap()), converter)?;
+        rom::Rom::write(
+            &manifest,
+            Path::new(rom_path.unwrap()),
+            read_bank_addrs(&matches)?,
+            converter,
+        )?;
     } else if let Some(matches) = matches.subcommand_matches("load_rom") {
         let rom_path = matches.value_of("ROM");
-        rom::Rom::load(Path::new(rom_path.unwrap()))?;
+        rom::Rom::load(Path::new(rom_path.unwrap()), read_bank_addrs(&matches)?)?;
     } else if let Some(matches) = matches.subcommand_matches("all_overworld") {
         let input_path = matches.value_of("INPUT");
         let rom_path = matches.value_of("ROM");
         rom::Rom::write_all_songs_as(
             Path::new(input_path.unwrap()),
             Path::new(rom_path.unwrap()),
+            read_bank_addrs(matches)?,
             converter,
         )?;
     } else if let Some(matches) = matches.subcommand_matches("dump_midi") {
@@ -55,6 +63,20 @@ pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
         song.write_to_json(Path::new(output_path.unwrap()));
     }
     Ok(())
+}
+
+fn read_bank_addrs(matches: &ArgMatches) -> Result<[u32; 3], Error> {
+    match matches.values_of("bank_addrs") {
+        None => Ok(rom::DEFAULT_BANK_BASE_ADDRS),
+        Some(values) => {
+            let parsed = values.map(|value_str| u32::from_str_radix(value_str, 16));
+            let vec: Result<Vec<u32>, ParseIntError> = parsed.collect();
+            match vec {
+                Ok(vec) => Ok([vec[0], vec[1], vec[2]]),
+                Err(err) => Err(Error::from(err)),
+            }
+        }
+    }
 }
 
 fn song_from_midi(path: &Path, tempo_factor: f32) -> Result<nspc::Song, Error> {
