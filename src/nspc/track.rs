@@ -1,10 +1,10 @@
-use ghakuf::messages::*;
 use failure::Error;
+use ghakuf::messages::*;
 use std::io::Cursor;
 
-use super::CallLoopRef;
 use super::command::*;
 use super::instruments::*;
+use super::CallLoopRef;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Track {
@@ -53,11 +53,13 @@ impl Track {
             for _ in 0..duration.overflow_count {
                 commands.push(ParameterizedCommand::new(Some(0x7f), None, Command::Rest));
             }
-            commands.push(ParameterizedCommand::new(
-                Some(duration.length),
-                None,
-                Command::Rest,
-            ));
+            if duration.length > 0 {
+                commands.push(ParameterizedCommand::new(
+                    Some(duration.length),
+                    None,
+                    Command::Rest,
+                ));
+            }
             last_note_end + duration.quantized_ticks
         } else {
             last_note_end

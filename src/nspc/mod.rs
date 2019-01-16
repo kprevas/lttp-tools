@@ -9,8 +9,11 @@ use serde_json;
 
 mod command;
 mod instruments;
+mod seqtree;
 mod track;
 
+use self::command::*;
+use self::seqtree::*;
 use self::track::*;
 
 const PREAMBLE_TRACK_0: [u8; 6] = [
@@ -41,7 +44,11 @@ pub struct Song {
 }
 
 impl Song {
-    pub fn from_midi(midi: &MidiHandler, tempo_factor: f32) -> Result<Song, Error> {
+    pub fn from_midi(
+        midi: &MidiHandler,
+        tempo_factor: f32,
+        optimize_loops: bool,
+    ) -> Result<Song, Error> {
         let tracks: Result<Vec<Track>, Error> = (0..16)
             .filter_map(|voice| {
                 match Track::new(
@@ -67,15 +74,82 @@ impl Song {
                     tracks: tracks.iter().enumerate().map(|(i, _)| i).collect(),
                 };
                 parts.push(part);
-                let tracks = Song::optimize_call_loops(tracks);
-                Ok(Song { parts, tracks })
+                if optimize_loops {
+                    let top_level_tracks = tracks.len();
+                    Ok(Song {
+                        parts,
+                        tracks: Song::optimize_call_loops(tracks, top_level_tracks),
+                    })
+                } else {
+                    Ok(Song { parts, tracks })
+                }
             }
             Err(err) => Err(err),
         }
     }
 
-    fn optimize_call_loops(tracks: Vec<Track>) -> Vec<Track> {
-        tracks
+    fn optimize_call_loops(tracks: Vec<Track>, top_level_tracks: usize) -> Vec<Track> {
+        let mut seqtree = SeqTree::new();
+        for (i, track) in tracks.iter().take(top_level_tracks).enumerate() {
+            seqtree.add_track(track, i);
+        }
+        let best_sequence = seqtree.valid_sequences().max_by_key(|seq| {
+            let commands_replaced = seq
+                .locations
+                .iter()
+                .fold(0, |acc, &loc| acc + loc.repeat_count as usize)
+                * seq.commands.len();
+            let commands_used = seq.commands.len() + seq.locations.len();
+            commands_replaced - commands_used
+        });
+        match best_sequence {
+            None => tracks,
+            Some(seq) => Song::optimize_call_loops(
+                Song::extract_sequence(tracks, seq, top_level_tracks),
+                top_level_tracks,
+            ),
+        }
+    }
+
+    fn extract_sequence(
+        tracks: Vec<Track>,
+        sequence: Sequence,
+        top_level_tracks: usize,
+    ) -> Vec<Track> {
+        let sequence_length = sequence.commands.len();
+        let mut new_tracks = Vec::new();
+        for (i, track) in tracks.iter().take(top_level_tracks).enumerate() {
+            let mut new_track = Track {
+                commands: Vec::new(),
+            };
+            let locations = sequence.locations.iter().filter(|loc| loc.track_idx == i);
+            let mut last_index: Option<usize> = None;
+            for location in locations {
+                new_track
+                    .commands
+                    .extend_from_slice(&track.commands[last_index.unwrap_or(0)..location.cmd_idx]);
+                new_track.commands.push(ParameterizedCommand::new(
+                    Some(0),
+                    Some(0),
+                    Command::CallLoop(tracks.len(), location.repeat_count),
+                ));
+                last_index =
+                    Some(location.cmd_idx + sequence_length * location.repeat_count as usize);
+            }
+            if last_index.is_none() || last_index.unwrap() < track.commands.len() {
+                new_track.commands.extend_from_slice(
+                    &track.commands[last_index.unwrap_or(0)..track.commands.len()],
+                );
+            }
+            new_tracks.push(new_track);
+        }
+        if tracks.len() > top_level_tracks {
+            new_tracks.extend_from_slice(&tracks[top_level_tracks..tracks.len()]);
+        }
+        new_tracks.push(Track {
+            commands: sequence.commands,
+        });
+        new_tracks
     }
 
     pub fn from_json(path: &Path) -> Song {
@@ -106,11 +180,14 @@ impl Song {
         if !track.commands.is_empty() {
             if self.parts.iter().any(|part| part.tracks[0] == track_idx) {
                 out.write(&PREAMBLE_TRACK_0)?;
-            } else {
+            } else if self
+                .parts
+                .iter()
+                .any(|part| part.tracks.contains(&track_idx))
+            {
                 out.write(&PREAMBLE_OTHER_TRACK)?;
             }
             track.write(out, call_loops)?;
-            out.write_u8(0x00)?;
             out.write_u8(0x00)?;
         }
         Ok(())

@@ -222,18 +222,20 @@ impl ParameterizedCommand {
                 if duration != prev_duration {
                     if duration > 0 {
                         out.write_u8(duration)?;
-                        match self.velocity {
-                            Some(velocity) => {
-                                if prev_velocity.is_none() || prev_velocity.unwrap() != velocity {
+                    }
+                    match self.velocity {
+                        Some(velocity) => {
+                            if prev_velocity.is_none() || prev_velocity.unwrap() != velocity {
+                                if velocity > 0 {
                                     out.write_u8(velocity)?;
-                                    velocity_out = Some(velocity);
                                 }
+                                velocity_out = None;
                             }
-                            _ => {
-                                if prev_velocity.is_none() {
-                                    out.write_u8(0x7d)?;
-                                    velocity_out = Some(0x7d);
-                                }
+                        }
+                        _ => {
+                            if prev_velocity.is_none() {
+                                out.write_u8(0x7d)?;
+                                velocity_out = Some(0x7d);
                             }
                         }
                     }
@@ -244,5 +246,12 @@ impl ParameterizedCommand {
         }
         self.command.write(out, call_loops)?;
         Ok((duration_out, velocity_out))
+    }
+
+    pub fn call_loop_eligible(&self) -> bool {
+        match self.command {
+            Command::CallLoop(_, _) => false,
+            _ => true,
+        }
     }
 }
