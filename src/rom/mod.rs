@@ -1,8 +1,10 @@
+extern crate pbr;
+
 use failure::Error;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
-use std::io::{Cursor, SeekFrom};
+use std::io::{Cursor, SeekFrom, Stdout};
 use std::path::Path;
 
 use manifest::*;
@@ -108,10 +110,17 @@ impl Rom {
         let mut romdata = Vec::new();
         file.read_to_end(&mut romdata)?;
 
+        let num_songs = manifest
+            .banks
+            .iter()
+            .fold(0, |acc, bank| acc + bank.songs.len());
+        let mut pb = pbr::ProgressBar::new(num_songs as u64);
+
         manifest.banks.iter().enumerate().fold(
             Ok(0),
             |first_song_result: Result<usize, Error>, (i, bank)| {
                 first_song_result.and_then(|first_song| {
+                    pb.message(&format!("Writing {} songs ", bank.name));
                     Rom::write_bank(
                         bank,
                         &mut romdata,
@@ -119,6 +128,7 @@ impl Rom {
                         BANK_FIRST_SONG_ADDRS[i],
                         first_song,
                         converter,
+                        &mut pb,
                         verbose,
                     )?;
                     Ok(first_song + bank.songs.len())
@@ -128,6 +138,7 @@ impl Rom {
 
         file.seek(SeekFrom::Start(0))?;
         file.write(&romdata)?;
+        pb.finish_print("All songs written.");
         Ok(())
     }
 
@@ -138,6 +149,7 @@ impl Rom {
         first_song_addr: usize,
         first_song: usize,
         converter: &Fn(&Path, f32) -> Result<Song, Error>,
+        pb: &mut pbr::ProgressBar<Stdout>,
         verbose: bool,
     ) -> Result<(), Error> {
         // find chunk going to ARAM D000
@@ -342,6 +354,7 @@ impl Rom {
             });
 
             song_offset = track_data_offset;
+            pb.inc();
         }
         for i in song_table_addr..(base_chunk_addr + first_song_addr - ARAM_BASE) {
             romdata[i] = 0x00;
