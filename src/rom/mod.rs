@@ -50,7 +50,7 @@ impl Chunk {
 struct SongBank {}
 
 impl SongBank {
-    fn read(romdata: &Vec<u8>, addr: u32) -> SongBank {
+    fn read(romdata: &Vec<u8>, addr: u32, verbose: bool) -> SongBank {
         let bank = romdata[snes_to_pc_addr(addr + 8)];
         let high = romdata[snes_to_pc_addr(addr + 4)];
         let low = romdata[snes_to_pc_addr(addr)];
@@ -66,10 +66,12 @@ impl SongBank {
             aram_chunk.copy_from_slice(chunk.data.as_slice());
             last_chunk_length = chunk.length;
             addr = chunk.offset_addr + chunk.length;
-            println!(
-                "Chunk found at {:X} target {:X} length {:X}",
-                chunk.offset_addr, chunk.aram_addr, chunk.length
-            );
+            if verbose {
+                println!(
+                    "Chunk found at {:X} target {:X} length {:X}",
+                    chunk.offset_addr, chunk.aram_addr, chunk.length
+                );
+            }
         }
 
         // TODO read songs
@@ -83,14 +85,14 @@ pub struct Rom {
 }
 
 impl Rom {
-    pub fn load(path: &Path, bank_base_addrs: [u32; 3]) -> Result<Rom, Error> {
+    pub fn load(path: &Path, bank_base_addrs: [u32; 3], verbose: bool) -> Result<Rom, Error> {
         let mut file = File::open(path)?;
         let mut romdata = Vec::new();
         file.read_to_end(&mut romdata)?;
 
-        let bank1 = SongBank::read(&romdata, bank_base_addrs[0]);
-        let _bank2 = SongBank::read(&romdata, bank_base_addrs[1]);
-        let _bank3 = SongBank::read(&romdata, bank_base_addrs[2]);
+        let bank1 = SongBank::read(&romdata, bank_base_addrs[0], verbose);
+        let _bank2 = SongBank::read(&romdata, bank_base_addrs[1], verbose);
+        let _bank3 = SongBank::read(&romdata, bank_base_addrs[2], verbose);
 
         Ok(Rom { _base: bank1 })
     }
@@ -100,6 +102,7 @@ impl Rom {
         path: &Path,
         bank_base_addrs: [u32; 3],
         converter: &Fn(&Path, f32) -> Result<Song, Error>,
+        verbose: bool,
     ) -> Result<(), Error> {
         let mut file = OpenOptions::new().read(true).write(true).open(path)?;
         let mut romdata = Vec::new();
@@ -116,6 +119,7 @@ impl Rom {
                         BANK_FIRST_SONG_ADDRS[i],
                         first_song,
                         converter,
+                        verbose,
                     )?;
                     Ok(first_song + bank.songs.len())
                 })
@@ -134,6 +138,7 @@ impl Rom {
         first_song_addr: usize,
         first_song: usize,
         converter: &Fn(&Path, f32) -> Result<Song, Error>,
+        verbose: bool,
     ) -> Result<(), Error> {
         // find chunk going to ARAM D000
         let bank_addr = romdata[snes_to_pc_addr(base_addr + 8)];
@@ -175,10 +180,12 @@ impl Rom {
         let mut chunk_length = base_chunk_len;
         let mut aram_base_addr = ARAM_BASE;
 
-        println!(
-            "Writing {} bank to 0x{:X} starting at song {}.  Available chunk length is {:X}",
-            bank.name, rom_addr, first_song, chunk_length
-        );
+        if verbose {
+            println!(
+                "Writing {} bank to 0x{:X} starting at song {}.  Available chunk length is {:X}",
+                bank.name, rom_addr, first_song, chunk_length
+            );
+        }
 
         let mut song_table_addr = rom_addr + first_song * 2;
         let mut song_offset = first_song_addr - aram_base_addr;
@@ -193,7 +200,9 @@ impl Rom {
                     "{} bank does not fit in available chunks",
                     bank.name
                 );
-                println!("Switching to overflow chunk");
+                if verbose {
+                    println!("Switching to overflow chunk");
+                }
                 song_offset = 0;
                 rom_addr = overflow_chunk_addr;
                 chunk_length = overflow_chunk_len;
@@ -201,12 +210,14 @@ impl Rom {
             };
 
             // write song address to song table
-            println!(
-                "Writing song address 0x{:X} (0x{:X}) to song table at 0x{:X}",
-                rom_addr + song_offset,
-                aram_base_addr + song_offset,
-                song_table_addr
-            );
+            if verbose {
+                println!(
+                    "Writing song address 0x{:X} (0x{:X}) to song table at 0x{:X}",
+                    rom_addr + song_offset,
+                    aram_base_addr + song_offset,
+                    song_table_addr
+                );
+            }
             let song_addr_bytes = addr_to_bytes(aram_base_addr + song_offset);
             romdata[song_table_addr + 1] = song_addr_bytes.0;
             romdata[song_table_addr] = song_addr_bytes.1;
@@ -258,18 +269,22 @@ impl Rom {
                         "{} bank does not fit in available chunks",
                         bank.name
                     );
-                    println!("Switching to overflow chunk");
+                    if verbose {
+                        println!("Switching to overflow chunk");
+                    }
                     track_data_offset = 0;
                     rom_addr = overflow_chunk_addr;
                     chunk_length = overflow_chunk_len;
                     aram_base_addr = aram_overflow_base;
                 };
 
-                println!(
-                    "Writing track to 0x{:X} (0x{:X})",
-                    rom_addr + track_data_offset,
-                    aram_base_addr + track_data_offset
-                );
+                if verbose {
+                    println!(
+                        "Writing track to 0x{:X} (0x{:X})",
+                        rom_addr + track_data_offset,
+                        aram_base_addr + track_data_offset
+                    );
+                }
                 if track_data.len() > 0 {
                     romdata.splice(
                         (rom_addr + track_data_offset)
@@ -290,19 +305,23 @@ impl Rom {
             }
 
             // part data
-            println!(
-                "Writing part data to 0x{:X} (0x{:X})",
-                part_data_rom_addr, part_data_aram_addr
-            );
+            if verbose {
+                println!(
+                    "Writing part data to 0x{:X} (0x{:X})",
+                    part_data_rom_addr, part_data_aram_addr
+                );
+            }
             let mut part_data_addr = part_data_rom_addr;
             for i in 0..16 {
                 romdata[part_data_addr + i] = 0;
             }
             song_data.get_part_tracks(0).iter().for_each(|&track_idx| {
-                println!(
-                    "Writing track address 0x{:X} to part data at 0x{:X}",
-                    track_addrs[track_idx], part_data_addr
-                );
+                if verbose {
+                    println!(
+                        "Writing track address 0x{:X} to part data at 0x{:X}",
+                        track_addrs[track_idx], part_data_addr
+                    );
+                }
                 let track_bytes = addr_to_bytes(track_addrs[track_idx]);
                 romdata[part_data_addr + 1] = track_bytes.0;
                 romdata[part_data_addr] = track_bytes.1;
@@ -311,10 +330,12 @@ impl Rom {
 
             call_loops.iter().for_each(|call_loop| {
                 let call_loop_addr = rom_addr + (call_loop.ref_pos as usize);
-                println!(
-                    "Writing loop address 0x{:X} to CallLoop instruction at 0x{:X}",
-                    track_addrs[call_loop.target_track], call_loop_addr
-                );
+                if verbose {
+                    println!(
+                        "Writing loop address 0x{:X} to CallLoop instruction at 0x{:X}",
+                        track_addrs[call_loop.target_track], call_loop_addr
+                    );
+                }
                 let track_bytes = addr_to_bytes(track_addrs[call_loop.target_track]);
                 romdata[call_loop_addr + 1] = track_bytes.0;
                 romdata[call_loop_addr] = track_bytes.1;
@@ -333,12 +354,14 @@ impl Rom {
         rom_path: &Path,
         bank_base_addrs: [u32; 3],
         converter: &Fn(&Path, f32) -> Result<Song, Error>,
+        verbose: bool,
     ) -> Result<(), Error> {
         Rom::write(
             &Manifest::single_song(song_path),
             rom_path,
             bank_base_addrs,
             converter,
+            verbose,
         )?;
         Ok(())
     }
