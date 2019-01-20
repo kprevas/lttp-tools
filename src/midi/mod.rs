@@ -394,7 +394,7 @@ impl MidiHandler {
 
                             active_notes[ch].insert(note, next_voice);
                             let messages = &mut self.voices[next_voice].messages;
-                            if ch != last_channel_per_voice[next_voice].unwrap_or(0xff) {
+                            if ch != last_channel_per_voice[next_voice].unwrap_or(ch) {
                                 last_ctrl_change_per_channel[ch]
                                     .map(|event| messages.push((event.clone(), abs_time)));
                                 last_prog_change_per_channel[ch]
