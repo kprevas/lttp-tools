@@ -1,41 +1,13 @@
 use failure::Error;
 use ghakuf::messages::*;
 use ghakuf::reader::*;
-use std::cmp::max;
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::path::Path;
 
 #[derive(Debug, Fail)]
 enum MidiError {
     #[fail(display = "{}: Couldn't fit notes into available channels", path)]
     CouldntFit { path: String },
-}
-
-fn permute(
-    assignments: &Vec<Vec<usize>>,
-    idx: usize,
-    used: &mut HashSet<usize>,
-) -> Vec<Vec<usize>> {
-    let mut permutations = Vec::new();
-    if idx < assignments.len() {
-        for assignment in &assignments[idx] {
-            if !used.contains(&assignment) {
-                if idx < assignments.len() - 1 {
-                    used.insert(*assignment);
-                    let mut rest = permute(assignments, idx + 1, used);
-                    for mut permutation in rest {
-                        permutation.insert(0, *assignment);
-                        permutations.push(permutation);
-                    }
-                    used.remove(&assignment);
-                } else {
-                    permutations.push(vec![*assignment])
-                }
-            }
-        }
-    }
-    permutations
 }
 
 fn channel(event: &MidiEvent) -> usize {
@@ -92,8 +64,7 @@ impl MidiTrack {
 struct MidiChannel {
     messages: Vec<(Message, u32)>,
     intervals: Vec<VoiceInterval>,
-    max_voices: usize,
-    voices: [usize; 8],
+    base_voice: usize,
 }
 
 impl MidiChannel {
@@ -101,8 +72,20 @@ impl MidiChannel {
         MidiChannel {
             messages: Vec::new(),
             intervals: Vec::new(),
-            max_voices: 0,
-            voices: [0; 8],
+            base_voice: 0,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct MidiVoice {
+    messages: Vec<(Message, u32)>,
+}
+
+impl MidiVoice {
+    fn new() -> MidiVoice {
+        MidiVoice {
+            messages: Vec::new(),
         }
     }
 }
@@ -111,6 +94,7 @@ impl MidiChannel {
 pub struct MidiHandler {
     tracks: Vec<MidiTrack>,
     channels: [MidiChannel; 16],
+    voices: [MidiVoice; 8],
     pub ticks_per_beat: u16,
 }
 
@@ -135,6 +119,16 @@ impl MidiHandler {
                 MidiChannel::new(),
                 MidiChannel::new(),
                 MidiChannel::new(),
+            ],
+            voices: [
+                MidiVoice::new(),
+                MidiVoice::new(),
+                MidiVoice::new(),
+                MidiVoice::new(),
+                MidiVoice::new(),
+                MidiVoice::new(),
+                MidiVoice::new(),
+                MidiVoice::new(),
             ],
             ticks_per_beat: 0,
         }
@@ -179,7 +173,6 @@ impl MidiHandler {
                                 active_voices -= 1;
                             } else {
                                 active_voices += 1;
-                                channel.max_voices = max(channel.max_voices, active_voices);
                             }
                             last_interval_end = abs_time;
                         }
@@ -189,7 +182,7 @@ impl MidiHandler {
                 }
             }
         }
-        let active_intervals = vec![
+        let active_base_intervals = vec![
             vec![],
             vec![],
             vec![],
@@ -199,13 +192,9 @@ impl MidiHandler {
             vec![],
             vec![],
         ];
-        if !self.solve_voices(0, &active_intervals) {
-            Err(Error::from(MidiError::CouldntFit {
-                path: path.to_str().unwrap().to_owned(),
-            }))
-        } else {
-            Ok(())
-        }
+        self.find_base_voices(0, &active_base_intervals, path)?;
+        self.channels_to_voices(path)?;
+        Ok(())
     }
 
     fn tracks_to_channels(&mut self) {
@@ -241,242 +230,268 @@ impl MidiHandler {
         }
     }
 
-    fn solve_voices(
+    fn find_base_voices(
         &mut self,
-        track_idx: usize,
-        active_intervals: &Vec<Vec<VoiceInterval>>,
-    ) -> bool {
-        if track_idx == self.channels.len() {
-            return true;
+        channel_idx: usize,
+        active_base_intervals: &Vec<Vec<VoiceInterval>>,
+        path: &Path,
+    ) -> Result<(), Error> {
+        if channel_idx == self.channels.len() {
+            return Ok(());
         }
-        let permutations;
-        {
-            let track = &self.channels[track_idx];
-            let mut assignments: Vec<Vec<usize>> = Vec::new();
-            for voice_idx in 0..track.max_voices {
-                assignments.push(Vec::new());
-                for channel in 0..8usize {
-                    let mut active_idx = 0;
-                    let ref active = active_intervals[channel];
-                    let mut overlaps = false;
-                    for interval in &track.intervals {
-                        if interval.voices <= voice_idx {
-                            continue;
-                        }
-                        while active_idx < active.len() && active[active_idx].end <= interval.start
-                        {
-                            active_idx += 1;
-                        }
-                        if active_idx < active.len() && active[active_idx].start < interval.end {
-                            overlaps = true;
-                            break;
-                        }
-                    }
-                    if !overlaps {
-                        assignments[voice_idx].push(channel);
-                    }
+        let mut valid_voices = vec![];
+        for i in 0..8 {
+            if MidiHandler::channel_fits(
+                &self.channels[channel_idx].intervals,
+                &active_base_intervals[i],
+            ) {
+                valid_voices.push(i);
+            }
+        }
+        for voice in valid_voices {
+            let mut active_base_intervals = active_base_intervals.clone();
+            active_base_intervals[voice]
+                .extend_from_slice(self.channels[channel_idx].intervals.as_slice());
+            match self.find_base_voices(channel_idx + 1, &active_base_intervals, path) {
+                Ok(_) => {
+                    self.channels[channel_idx].base_voice = voice;
+                    return Ok(());
                 }
-            }
-            permutations = permute(&assignments, 0, &mut HashSet::new());
-            if track.max_voices > 0 && permutations.is_empty() {
-                return false;
+                Err(_) => (),
             }
         }
-        for permutation in permutations {
-            let mut new_active_intervals = active_intervals.clone();
-            for voice_idx in 0..permutation.len() {
-                for interval in &(&self.channels[track_idx]).intervals {
-                    if interval.voices > voice_idx {
-                        new_active_intervals
-                            .get_mut(permutation[voice_idx])
-                            .unwrap()
-                            .push(*interval);
-                    }
-                }
-            }
-            new_active_intervals
-                .iter_mut()
-                .for_each(|channel_intervals| {
-                    channel_intervals.sort_by_key(|interval| interval.start)
-                });
-            if self.solve_voices(track_idx + 1, &new_active_intervals) {
-                for perm_idx in 0..permutation.len() {
-                    self.channels[track_idx].voices[perm_idx] = permutation[perm_idx];
-                }
-                return true;
-            }
-        }
-        if self.channels[track_idx].max_voices == 0 {
-            return self.solve_voices(track_idx + 1, &active_intervals);
-        } else {
-            return false;
-        }
+        Err(Error::from(MidiError::CouldntFit {
+            path: path.to_str().unwrap().to_owned(),
+        }))
     }
 
-    pub fn max_voice(&self) -> u8 {
-        *self
-            .channels
+    fn channel_fits(channel: &Vec<VoiceInterval>, active_intervals: &Vec<VoiceInterval>) -> bool {
+        for interval in channel {
+            for existing_interval in active_intervals {
+                if interval.voices > 0
+                    && existing_interval.voices > 0
+                    && interval.end > existing_interval.start
+                    && interval.start < existing_interval.end
+                {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    fn channels_to_voices(&mut self, path: &Path) -> Result<(), Error> {
+        let channels = &self.channels;
+        let mut last_abs_time: Vec<u32> = Vec::new();
+        let mut curr_event_idx: Vec<usize> = Vec::new();
+        let mut last_ctrl_change_per_channel: Vec<Option<&Message>> = Vec::new();
+        let mut last_prog_change_per_channel: Vec<Option<&Message>> = Vec::new();
+        let mut last_pitch_bend_per_channel: Vec<Option<&Message>> = Vec::new();
+        let mut last_ctrl_change_per_voice: Vec<Option<&Message>> = Vec::new();
+        let mut last_prog_change_per_voice: Vec<Option<&Message>> = Vec::new();
+        let mut last_pitch_bend_per_voice: Vec<Option<&Message>> = Vec::new();
+        let mut last_channel_per_voice: Vec<Option<usize>> = Vec::new();
+        let mut active_notes: Vec<HashMap<u8, usize>> = Vec::new();
+        for _ in 0..self.channels.len() {
+            last_abs_time.push(0);
+            curr_event_idx.push(0);
+            last_ctrl_change_per_channel.push(None);
+            last_prog_change_per_channel.push(None);
+            last_pitch_bend_per_channel.push(None);
+            active_notes.push(HashMap::new());
+        }
+        for _ in 0..self.voices.len() {
+            last_ctrl_change_per_voice.push(None);
+            last_prog_change_per_voice.push(None);
+            last_pitch_bend_per_voice.push(None);
+            last_channel_per_voice.push(None);
+        }
+        let mut channels_done = channels
             .iter()
-            .map(|channel| channel.voices.iter().max().unwrap())
-            .max()
-            .unwrap() as u8
-    }
-
-    pub fn events_for_voice(&self, voice: usize) -> Box<Vec<(Message, u32)>> {
-        let mut message_box = Box::new(Vec::new());
-        {
-            let channels = &self.channels;
-            let messages = message_box.as_mut();
-            let mut last_abs_time: Vec<u32> = Vec::new();
-            let mut curr_event_idx: Vec<usize> = Vec::new();
-            let mut last_key_pressure: Vec<Option<&Message>> = Vec::new();
-            let mut last_ctrl_change: Vec<Option<&Message>> = Vec::new();
-            let mut last_prog_change: Vec<Option<&Message>> = Vec::new();
-            let mut last_channel_pressure: Vec<Option<&Message>> = Vec::new();
-            let mut last_pitch_bend: Vec<Option<&Message>> = Vec::new();
-            let mut active_notes: Vec<HashMap<u8, usize>> = Vec::new();
-            for _ in 0..self.channels.len() {
-                last_abs_time.push(0);
-                curr_event_idx.push(0);
-                last_key_pressure.push(None);
-                last_ctrl_change.push(None);
-                last_prog_change.push(None);
-                last_channel_pressure.push(None);
-                last_pitch_bend.push(None);
-                active_notes.push(HashMap::new());
-            }
-            let mut last_channel = 0xffusize;
-            let mut channels_done = channels
+            .filter(|channel| channel.messages.is_empty())
+            .count();
+        while channels_done < channels.len() {
+            let (next_channel, _) = channels
                 .iter()
-                .filter(|channel| channel.messages.is_empty())
-                .count();
-            while channels_done < channels.len() {
-                let (next_channel, _) = channels
-                    .iter()
-                    .enumerate()
-                    .min_by_key(|&(i, channel)| {
-                        if curr_event_idx[i] == channel.messages.len() {
-                            (u32::max_value(), u8::max_value())
-                        } else {
-                            let event = &channel.messages[curr_event_idx[i]];
-                            (event.1, priority(&event.0))
-                        }
-                    })
-                    .unwrap();
-                let next_event = &channels[next_channel].messages[curr_event_idx[next_channel]];
-                curr_event_idx[next_channel] += 1;
-                if curr_event_idx[next_channel] == channels[next_channel].messages.len() {
-                    channels_done += 1;
-                }
-
-                match *next_event {
-                    (Message::MetaEvent { ref event, .. }, _) => {
-                        if let MetaEvent::SetTempo = *event {
-                            if voice == 0 {
-                                messages.push(next_event.clone())
-                            }
-                        }
+                .enumerate()
+                .min_by_key(|&(i, channel)| {
+                    if curr_event_idx[i] == channel.messages.len() {
+                        (u32::max_value(), u8::max_value())
+                    } else {
+                        let event = &channel.messages[curr_event_idx[i]];
+                        (event.1, priority(&event.0))
                     }
-                    (
-                        Message::MidiEvent {
-                            delta_time,
-                            ref event,
-                        },
-                        abs_time,
-                    ) => match *event {
-                        MidiEvent::NoteOff { ch, note, .. } => {
-                            let ch = ch as usize;
+                })
+                .unwrap();
+            let next_event = &channels[next_channel].messages[curr_event_idx[next_channel]];
+            curr_event_idx[next_channel] += 1;
+            if curr_event_idx[next_channel] == channels[next_channel].messages.len() {
+                channels_done += 1;
+            }
+
+            match *next_event {
+                (Message::MetaEvent { ref event, .. }, _) => {
+                    if let MetaEvent::SetTempo = *event {
+                        self.voices[0].messages.push(next_event.clone());
+                    }
+                }
+                (
+                    Message::MidiEvent {
+                        delta_time,
+                        ref event,
+                    },
+                    abs_time,
+                ) => match *event {
+                    MidiEvent::NoteOff { ch, note, .. } => {
+                        let ch = ch as usize;
+                        let voice = active_notes[ch].remove(&note).unwrap();
+                        self.voices[voice].messages.push(next_event.clone());
+                    }
+                    MidiEvent::NoteOn { ch, note, velocity } => {
+                        let ch = ch as usize;
+                        if velocity == 0 {
                             let note_voice = active_notes[ch].remove(&note).unwrap();
-                            if note_voice == voice {
-                                messages.push(next_event.clone());
-                            }
-                        }
-                        MidiEvent::NoteOn { ch, note, velocity } => {
-                            let ch = ch as usize;
-                            if velocity == 0 {
-                                let note_voice = active_notes[ch].remove(&note).unwrap();
-                                if note_voice == voice {
-                                    messages.push((
-                                        Message::MidiEvent {
-                                            delta_time,
-                                            event: MidiEvent::NoteOff {
-                                                ch: ch as u8,
-                                                note,
-                                                velocity,
-                                            },
-                                        },
-                                        abs_time,
-                                    ));
+                            self.voices[note_voice].messages.push((
+                                Message::MidiEvent {
+                                    delta_time,
+                                    event: MidiEvent::NoteOff {
+                                        ch: ch as u8,
+                                        note,
+                                        velocity,
+                                    },
+                                },
+                                abs_time,
+                            ));
+                        } else {
+                            let mut next_voice = None;
+                            let base_voice = self.channels[ch].base_voice;
+                            if active_notes
+                                .iter()
+                                .flat_map(|active_note| active_note.values())
+                                .any(|&voice| voice == base_voice)
+                            {
+                                for possible_voice in 0..self.voices.len() {
+                                    if !self
+                                        .channels
+                                        .iter()
+                                        .map(|channel| channel.base_voice)
+                                        .any(|voice| voice == possible_voice)
+                                        && !active_notes
+                                            .iter()
+                                            .flat_map(|active_note| active_note.values())
+                                            .any(|&voice| voice == possible_voice)
+                                    {
+                                        next_voice = Some(possible_voice);
+                                        break;
+                                    }
                                 }
                             } else {
-                                let next_voice =
-                                    channels[next_channel].voices[active_notes[ch].len()];
-                                active_notes[ch].insert(note, next_voice);
-                                if next_voice == voice {
-                                    if ch != last_channel {
-                                        last_key_pressure[ch]
-                                            .map(|event| messages.push((event.clone(), abs_time)));
-                                        last_ctrl_change[ch]
-                                            .map(|event| messages.push((event.clone(), abs_time)));
-                                        last_prog_change[ch]
-                                            .map(|event| messages.push((event.clone(), abs_time)));
-                                        last_channel_pressure[ch]
-                                            .map(|event| messages.push((event.clone(), abs_time)));
-                                        last_pitch_bend[ch]
-                                            .map(|event| messages.push((event.clone(), abs_time)));
-                                        last_channel = ch;
-                                    }
-                                    messages.push(next_event.clone());
-                                }
+                                next_voice = Some(base_voice);
                             }
-                        }
-                        MidiEvent::PolyphonicKeyPressure { ch, .. } => {
-                            let ch = ch as usize;
-                            if last_channel == ch {
-                                messages.push(next_event.clone())
+                            let next_voice = next_voice.ok_or(MidiError::CouldntFit {
+                                path: path.to_str().unwrap().to_owned(),
+                            })?;
+
+                            active_notes[ch].insert(note, next_voice);
+                            let messages = &mut self.voices[next_voice].messages;
+                            if ch != last_channel_per_voice[next_voice].unwrap_or(0xff) {
+                                last_ctrl_change_per_channel[ch]
+                                    .map(|event| messages.push((event.clone(), abs_time)));
+                                last_prog_change_per_channel[ch]
+                                    .map(|event| messages.push((event.clone(), abs_time)));
+                                last_pitch_bend_per_channel[ch]
+                                    .map(|event| messages.push((event.clone(), abs_time)));
+                                last_channel_per_voice[next_voice] = Some(ch);
                             }
-                            last_key_pressure[ch] = Some(&next_event.0);
-                        }
-                        MidiEvent::ControlChange { ch, .. } => {
-                            let ch = ch as usize;
-                            if last_channel == ch {
-                                messages.push(next_event.clone())
-                            }
-                            last_ctrl_change[ch] = Some(&next_event.0);
-                        }
-                        MidiEvent::ProgramChange { ch, .. } => {
-                            let ch = ch as usize;
-                            if last_channel == ch {
-                                messages.push(next_event.clone())
-                            }
-                            last_prog_change[ch] = Some(&next_event.0);
-                        }
-                        MidiEvent::ChannelPressure { ch, .. } => {
-                            let ch = ch as usize;
-                            if last_channel == ch {
-                                messages.push(next_event.clone())
-                            }
-                            last_channel_pressure[ch] = Some(&next_event.0);
-                        }
-                        MidiEvent::PitchBendChange { ch, .. } => {
-                            let ch = ch as usize;
-                            if last_channel == ch {
-                                messages.push(next_event.clone())
-                            }
-                            last_pitch_bend[ch] = Some(&next_event.0);
-                        }
-                        _ => {}
-                    },
-                    (Message::SysExEvent { .. }, _) => {
-                        if voice == 0 {
-                            messages.push(next_event.clone())
+                            messages.push(next_event.clone());
                         }
                     }
+                    MidiEvent::PolyphonicKeyPressure { ch, note, .. } => {
+                        let ch = ch as usize;
+                        match active_notes[ch].get(&note) {
+                            Some(voice) => self.voices[*voice].messages.push(next_event.clone()),
+                            None => (),
+                        }
+                    }
+                    MidiEvent::ControlChange { ch, .. } => {
+                        let ch = ch as usize;
+                        let mut pushed_to_base = false;
+                        for &voice in active_notes[ch].values() {
+                            self.voices[voice].messages.push(next_event.clone());
+                            last_ctrl_change_per_voice[voice] = Some(&next_event.0);
+                            if voice == self.channels[ch].base_voice {
+                                pushed_to_base = true;
+                            }
+                        }
+                        if !pushed_to_base {
+                            self.voices[self.channels[ch].base_voice]
+                                .messages
+                                .push(next_event.clone());
+                        }
+                        last_ctrl_change_per_channel[ch] = Some(&next_event.0);
+                    }
+                    MidiEvent::ProgramChange { ch, .. } => {
+                        let ch = ch as usize;
+                        let mut pushed_to_base = false;
+                        for &voice in active_notes[ch].values() {
+                            self.voices[voice].messages.push(next_event.clone());
+                            last_prog_change_per_voice[voice] = Some(&next_event.0);
+                            if voice == self.channels[ch].base_voice {
+                                pushed_to_base = true;
+                            }
+                        }
+                        if !pushed_to_base {
+                            self.voices[self.channels[ch].base_voice]
+                                .messages
+                                .push(next_event.clone());
+                        }
+                        last_prog_change_per_channel[ch] = Some(&next_event.0);
+                    }
+                    MidiEvent::ChannelPressure { ch, .. } => {
+                        let ch = ch as usize;
+                        let mut pushed_to_base = false;
+                        for &voice in active_notes[ch].values() {
+                            self.voices[voice].messages.push(next_event.clone());
+                            if voice == self.channels[ch].base_voice {
+                                pushed_to_base = true;
+                            }
+                        }
+                        if !pushed_to_base {
+                            self.voices[self.channels[ch].base_voice]
+                                .messages
+                                .push(next_event.clone());
+                        }
+                    }
+                    MidiEvent::PitchBendChange { ch, .. } => {
+                        let ch = ch as usize;
+                        let mut pushed_to_base = false;
+                        for &voice in active_notes[ch].values() {
+                            self.voices[voice].messages.push(next_event.clone());
+                            last_pitch_bend_per_voice[voice] = Some(&next_event.0);
+                            if voice == self.channels[ch].base_voice {
+                                pushed_to_base = true;
+                            }
+                        }
+                        if !pushed_to_base {
+                            self.voices[self.channels[ch].base_voice]
+                                .messages
+                                .push(next_event.clone());
+                        }
+                        last_pitch_bend_per_channel[ch] = Some(&next_event.0);
+                    }
                     _ => {}
+                },
+                (Message::SysExEvent { .. }, _) => {
+                    self.voices[0].messages.push(next_event.clone());
                 }
+                _ => {}
             }
         }
-        message_box
+        Ok(())
+    }
+
+    pub fn events_for_voice(&self, voice: usize) -> &Vec<(Message, u32)> {
+        &self.voices[voice].messages
     }
 }
 

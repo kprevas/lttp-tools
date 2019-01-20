@@ -49,12 +49,13 @@ impl Song {
         tempo_factor: f32,
         optimize_loops: bool,
     ) -> Result<Song, Error> {
-        let tracks: Result<Vec<Track>, Error> = (0..16)
+        let tracks: Result<Vec<Track>, Error> = (0..8)
             .filter_map(|voice| {
                 match Track::new(
                     midi.events_for_voice(voice),
                     midi.ticks_per_beat,
                     tempo_factor,
+                    voice,
                 ) {
                     Ok(track) => {
                         if track.commands.is_empty() {

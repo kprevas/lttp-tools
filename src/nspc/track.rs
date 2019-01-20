@@ -67,15 +67,16 @@ impl Track {
     }
 
     pub fn new(
-        events: Box<Vec<(Message, u32)>>,
+        events: &Vec<(Message, u32)>,
         ticks_per_beat: u16,
         tempo_factor: f32,
+        voice: usize,
     ) -> Result<Track, Error> {
         let mut commands = Vec::new();
         let mut note_start: Option<u32> = None;
         let mut last_note_end = 0u32;
         let mut last_ch11_instr = 0;
-        for &(ref message, abs_time) in events.as_ref() {
+        for &(ref message, abs_time) in events {
             match *message {
                 Message::MetaEvent {
                     ref event,
@@ -146,7 +147,7 @@ impl Track {
                                 note_start = None;
                             }
                         }
-                        MidiEvent::NoteOn { ch, .. } => {
+                        MidiEvent::NoteOn { .. } => {
                             last_note_end = Track::insert_rest(
                                 &mut commands,
                                 last_note_end,
@@ -154,7 +155,7 @@ impl Track {
                                 ticks_per_beat,
                             );
                             if note_start.is_some() {
-                                bail!("More than one voice needed on channel {}", ch);
+                                bail!("More than one voice needed on voice {}: notes start at {} and {}", voice, note_start.unwrap(), abs_time);
                             }
                             note_start = Some(abs_time)
                         }
