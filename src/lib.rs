@@ -57,7 +57,9 @@ pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
     } else if let Some(matches) = matches.subcommand_matches("dump_midi") {
         let input_path = matches.value_of("INPUT");
         let mut midi = midi::MidiHandler::new();
-        midi.read(Path::new(input_path.unwrap()))?;
+        midi.read(Path::new(input_path.unwrap())).unwrap_or_else(|err| {
+            println!("Error reading MIDI: {:?}", err);
+        });
         println!("{:#?}", midi);
     } else if let Some(matches) = matches.subcommand_matches("midi2json") {
         let input_path = matches.value_of("INPUT");

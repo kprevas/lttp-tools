@@ -8,8 +8,8 @@ use std::path::Path;
 
 #[derive(Debug, Fail)]
 enum MidiError {
-    #[fail(display = "Couldn't fit notes into available channels")]
-    CouldntFit {},
+    #[fail(display = "{}: Couldn't fit notes into available channels", path)]
+    CouldntFit { path: String },
 }
 
 fn permute(
@@ -55,6 +55,7 @@ fn priority(message: &Message) -> u8 {
     match *message {
         Message::MidiEvent { ref event, .. } => match *event {
             MidiEvent::NoteOff { .. } => 0,
+            MidiEvent::NoteOn { velocity: 0, .. } => 0,
             MidiEvent::NoteOn { .. } => 2,
             MidiEvent::PolyphonicKeyPressure { .. } => 1,
             MidiEvent::ControlChange { .. } => 1,
@@ -166,7 +167,7 @@ impl MidiHandler {
                             active_voices -= 1;
                             last_interval_end = abs_time;
                         }
-                        MidiEvent::NoteOn { .. } => {
+                        MidiEvent::NoteOn { velocity, .. } => {
                             if abs_time > last_interval_end {
                                 intervals.push(VoiceInterval {
                                     start: last_interval_end,
@@ -174,8 +175,12 @@ impl MidiHandler {
                                     voices: active_voices,
                                 });
                             }
-                            active_voices += 1;
-                            channel.max_voices = max(channel.max_voices, active_voices);
+                            if velocity == 0 {
+                                active_voices -= 1;
+                            } else {
+                                active_voices += 1;
+                                channel.max_voices = max(channel.max_voices, active_voices);
+                            }
                             last_interval_end = abs_time;
                         }
                         _ => {}
@@ -195,7 +200,9 @@ impl MidiHandler {
             vec![],
         ];
         if !self.solve_voices(0, &active_intervals) {
-            Err(Error::from(MidiError::CouldntFit {}))
+            Err(Error::from(MidiError::CouldntFit {
+                path: path.to_str().unwrap().to_owned(),
+            }))
         } else {
             Ok(())
         }
@@ -370,7 +377,13 @@ impl MidiHandler {
                             }
                         }
                     }
-                    (Message::MidiEvent { ref event, .. }, abs_time) => match *event {
+                    (
+                        Message::MidiEvent {
+                            delta_time,
+                            ref event,
+                        },
+                        abs_time,
+                    ) => match *event {
                         MidiEvent::NoteOff { ch, note, .. } => {
                             let ch = ch as usize;
                             let note_voice = active_notes[ch].remove(&note).unwrap();
@@ -378,25 +391,43 @@ impl MidiHandler {
                                 messages.push(next_event.clone());
                             }
                         }
-                        MidiEvent::NoteOn { ch, note, .. } => {
+                        MidiEvent::NoteOn { ch, note, velocity } => {
                             let ch = ch as usize;
-                            let next_voice = channels[next_channel].voices[active_notes[ch].len()];
-                            active_notes[ch].insert(note, next_voice);
-                            if next_voice == voice {
-                                if ch != last_channel {
-                                    last_key_pressure[ch]
-                                        .map(|event| messages.push((event.clone(), abs_time)));
-                                    last_ctrl_change[ch]
-                                        .map(|event| messages.push((event.clone(), abs_time)));
-                                    last_prog_change[ch]
-                                        .map(|event| messages.push((event.clone(), abs_time)));
-                                    last_channel_pressure[ch]
-                                        .map(|event| messages.push((event.clone(), abs_time)));
-                                    last_pitch_bend[ch]
-                                        .map(|event| messages.push((event.clone(), abs_time)));
-                                    last_channel = ch;
+                            if velocity == 0 {
+                                let note_voice = active_notes[ch].remove(&note).unwrap();
+                                if note_voice == voice {
+                                    messages.push((
+                                        Message::MidiEvent {
+                                            delta_time,
+                                            event: MidiEvent::NoteOff {
+                                                ch: ch as u8,
+                                                note,
+                                                velocity,
+                                            },
+                                        },
+                                        abs_time,
+                                    ));
                                 }
-                                messages.push(next_event.clone());
+                            } else {
+                                let next_voice =
+                                    channels[next_channel].voices[active_notes[ch].len()];
+                                active_notes[ch].insert(note, next_voice);
+                                if next_voice == voice {
+                                    if ch != last_channel {
+                                        last_key_pressure[ch]
+                                            .map(|event| messages.push((event.clone(), abs_time)));
+                                        last_ctrl_change[ch]
+                                            .map(|event| messages.push((event.clone(), abs_time)));
+                                        last_prog_change[ch]
+                                            .map(|event| messages.push((event.clone(), abs_time)));
+                                        last_channel_pressure[ch]
+                                            .map(|event| messages.push((event.clone(), abs_time)));
+                                        last_pitch_bend[ch]
+                                            .map(|event| messages.push((event.clone(), abs_time)));
+                                        last_channel = ch;
+                                    }
+                                    messages.push(next_event.clone());
+                                }
                             }
                         }
                         MidiEvent::PolyphonicKeyPressure { ch, .. } => {
