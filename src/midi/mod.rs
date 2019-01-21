@@ -380,12 +380,14 @@ impl MidiHandler {
                 ) => match *event {
                     MidiEvent::NoteOff { ch, note, .. } => {
                         let ch = ch as usize;
-                        let voice = active_notes[ch].remove(&note).unwrap();
-                        self.voices[voice].messages.push(next_event.clone());
+                        if active_notes[ch].contains_key(&note) {
+                            let voice = active_notes[ch].remove(&note).unwrap();
+                            self.voices[voice].messages.push(next_event.clone());
+                        }
                     }
                     MidiEvent::NoteOn { ch, note, velocity } => {
                         let ch = ch as usize;
-                        if velocity == 0 {
+                        if active_notes[ch].contains_key(&note) {
                             let note_voice = active_notes[ch].remove(&note).unwrap();
                             self.voices[note_voice].messages.push((
                                 Message::MidiEvent {
@@ -398,7 +400,8 @@ impl MidiHandler {
                                 },
                                 abs_time,
                             ));
-                        } else {
+                        }
+                        if velocity > 0 {
                             let mut next_voice = None;
                             let base_voice = self.channels[ch].base_voice;
                             if active_notes
