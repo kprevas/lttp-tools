@@ -1,110 +1,110 @@
 {
   "overworld": {
     "Title": {
-      "input": "title.mid"
+      "input": "adagio-for-strings.mid"
     },
     "World Map": {
-      "input": "worldmap.mid"
+      "input": "at-peace.mid"
     },
     "Beginning": {
-      "input": "beginning.mid"
+      "input": "Bassoons-Harpsichord.mid"
     },
     "Rabbit": {
-      "input": "rabbit.mid"
+      "input": "Championship-Fanfare.mid"
     },
     "Forest": {
-      "input": "forest.mid"
+      "input": "Caper-Arranged.mid"
     },
     "Intro": {
-      "input": "intro.mid"
+      "input": "Gentle-Song.mid"
     },
     "Town": {
-      "input": "town.mid"
+      "input": "Ghouls-and-Ghosts.mid"
     },
     "Warp": {
-      "input": "warp.mid"
+      "input": "Dreamy-Summer.mid"
     },
     "Dark World": {
-      "input": "darkworld.mid"
+      "input": "ice-blocks.mid"
     },
     "Master Sword": {
-      "input": "mastersword.mid"
+      "input": "Gentle-and-cute.mid"
     },
     "File Select": {
-      "input": "fileselect.mid"
+      "input": "gospel-tune.mid"
     },
     "Soldier": {
-      "input": "solider.mid"
+      "input": "Happy-Cowboy.mid"
     },
     "Mountain": {
-      "input": "mountain.mid"
+      "input": "Mystic-Temple.mid"
     },
     "Shop": {
-      "input": "shop.mid"
+      "input": "Puzzle-Blocks.mid"
     },
     "Fanfare": {
-      "input": "fanfare.mid"
+      "input": "polar-penguin.mid"
     }
   },
   "indoor": {
     "Castle": {
-      "input": "castle.mid"
+      "input": "jazzy-swing-song.mid"
     },
     "Palace": {
-      "input": "palace.mid"
+      "input": "lazy-waves.mid"
     },
     "Cave": {
-      "input": "cave.mid"
+      "input": "melancoly-lento.mid"
     },
     "Clear": {
-      "input": "clear.mid"
+      "input": "Minstrel.mid"
     },
     "Church": {
-      "input": "church.mid"
+      "input": "Nostalgia.mid"
     },
     "Boss": {
-      "input": "boss.mid"
+      "input": "Oddity-for-string-trio.mid"
     },
     "Dungeon": {
-      "input": "dungeon.mid"
+      "input": "Pleasant-afternoon.mid"
     },
     "Psychic": {
-      "input": "psychic.mid"
+      "input": "Way-of-the-Dragon.mid"
     },
     "Secret Way": {
-      "input": "secret.mid"
+      "input": "Restless-and-uneasy.mid"
     },
     "Rescue": {
-      "input": "rescue.mid"
+      "input": "football-song.mid"
     },
     "Crystal": {
-      "input": "crystal.mid"
+      "input": "roman-march.mid"
     },
     "Fountain": {
-      "input": "fountain.mid"
+      "input": "sadness-in-the-rain.mid"
     },
     "Pyramid": {
-      "input": "pyramid.mid"
+      "input": "short-hymn.mid"
     },
     "Kill Agahnim": {
-      "input": "aga.mid"
+      "input": "spiritual.mid"
     },
     "Ganon Room": {
-      "input": "ganon.mid"
+      "input": "not-mozart.mid"
     },
     "Last Boss": {
-      "input": "boss.mid"
+      "input": "Tough-Shootist.mid"
     }
   },
   "ending": {
     "Triforce": {
-      "input": "triforce.mid"
+      "input": "Transwaltz.mid"
     },
     "Ending": {
-      "input": "ending.mid"
+      "input": "Tuba-and-Banjo.mid"
     },
     "Staff": {
-      "input": "staff.mid"
+      "input": "variations-in-blue.mid"
     }
   }
 }
