@@ -1,11 +1,13 @@
 extern crate pbr;
 
+use self::pbr::*;
 use failure::Error;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
-use std::io::{Cursor, SeekFrom, Stdout};
+use std::io::{Cursor, SeekFrom};
 use std::path::Path;
+use std::thread;
 
 use manifest::*;
 use nspc::{CallLoopRef, Song};
@@ -114,13 +116,32 @@ impl Rom {
             .banks
             .iter()
             .fold(0, |acc, bank| acc + bank.songs.len());
-        let mut pb = pbr::ProgressBar::new(num_songs as u64);
+        let mut mb = MultiBar::new();
+        let mut songs_pb = mb.create_bar(num_songs as u64);
+        let mut bank_pbs = manifest
+            .banks
+            .iter()
+            .map(|bank| {
+                let mut pb = mb.create_bar(1);
+                pb.message(&format!("{} ", bank.name));
+                pb.format("[==-]");
+                pb.show_speed = false;
+                pb.show_time_left = false;
+                pb.show_counter = false;
+                pb.set(0);
+                pb
+            })
+            .collect::<Vec<ProgressBar<Pipe>>>();
+
+        let mb_thread = thread::spawn(move || {
+            mb.listen();
+        });
 
         manifest.banks.iter().enumerate().fold(
             Ok(0),
             |first_song_result: Result<usize, Error>, (i, bank)| {
                 first_song_result.and_then(|first_song| {
-                    pb.message(&format!("Writing {} songs ", bank.name));
+                    songs_pb.message(&format!("Writing {} songs ", bank.name));
                     Rom::write_bank(
                         bank,
                         &mut romdata,
@@ -128,9 +149,11 @@ impl Rom {
                         BANK_FIRST_SONG_ADDRS[i],
                         first_song,
                         converter,
-                        &mut pb,
+                        &mut songs_pb,
+                        &mut bank_pbs[i],
                         verbose,
                     )?;
+                    bank_pbs[i].finish_print(&format!("{} bank complete.", bank.name));
                     Ok(first_song + bank.songs.len())
                 })
             },
@@ -138,7 +161,8 @@ impl Rom {
 
         file.seek(SeekFrom::Start(0))?;
         file.write(&romdata)?;
-        pb.finish_print("All songs written.");
+        songs_pb.finish_print("All songs written.");
+        mb_thread.join().unwrap();
         Ok(())
     }
 
@@ -149,7 +173,8 @@ impl Rom {
         first_song_addr: usize,
         first_song: usize,
         converter: &Fn(&Path, f32) -> Result<Song, Error>,
-        pb: &mut pbr::ProgressBar<Stdout>,
+        songs_pb: &mut ProgressBar<Pipe>,
+        bank_pb: &mut ProgressBar<Pipe>,
         verbose: bool,
     ) -> Result<(), Error> {
         // find chunk going to ARAM D000
@@ -199,10 +224,16 @@ impl Rom {
             );
         }
 
+        bank_pb.total = (base_chunk_len + overflow_chunk_len) as u64;
+        bank_pb.show_counter = true;
+
         let mut song_table_addr = rom_addr + first_song * 2;
         let mut song_offset = first_song_addr - aram_base_addr;
 
         for song_def in &bank.songs {
+            bank_pb.message(&format!("{} ", song_def.input.to_str().unwrap()));
+            bank_pb.set((song_offset + if rom_addr == base_chunk_addr { 0 } else { base_chunk_len }) as u64);
+
             let song_data = converter(song_def.input.as_path(), song_def.tempo_factor)?;
 
             // check if non-track data fits in chunk
@@ -367,7 +398,7 @@ impl Rom {
                 );
             }
             song_offset = track_data_offset;
-            pb.inc();
+            songs_pb.inc();
         }
         for i in song_table_addr..(base_chunk_addr + first_song_addr - ARAM_BASE) {
             romdata[i] = 0x00;
