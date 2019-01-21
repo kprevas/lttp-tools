@@ -25,7 +25,7 @@ pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
     let converter =
         move |path: &Path, tempo_factor| {
             if path.extension().map_or(false, |ext| ext.eq("mid")) {
-                song_from_midi(path, tempo_factor, optimize)
+                song_from_midi(path, tempo_factor, optimize, verbose)
             } else {
                 Ok(nspc::Song::from_json(path))
             }
@@ -57,7 +57,7 @@ pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
     } else if let Some(matches) = matches.subcommand_matches("dump_midi") {
         let input_path = matches.value_of("INPUT");
         let mut midi = midi::MidiHandler::new();
-        midi.read(Path::new(input_path.unwrap())).unwrap_or_else(|err| {
+        midi.read(Path::new(input_path.unwrap()), verbose).unwrap_or_else(|err| {
             println!("Error reading MIDI: {:?}", err);
         });
         println!("{:#?}", midi);
@@ -65,8 +65,8 @@ pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
         let input_path = matches.value_of("INPUT");
         let output_path = matches.value_of("OUTPUT");
         let mut midi = midi::MidiHandler::new();
-        midi.read(Path::new(input_path.unwrap()))?;
-        let song = nspc::Song::from_midi(&midi, manifest::DEFAULT_TEMPO_ADJUST, optimize)?;
+        midi.read(Path::new(input_path.unwrap()), verbose)?;
+        let song = nspc::Song::from_midi(&midi, manifest::DEFAULT_TEMPO_ADJUST, optimize, verbose)?;
         song.write_to_json(Path::new(output_path.unwrap()));
     }
     Ok(())
@@ -86,8 +86,8 @@ fn read_bank_addrs(matches: &ArgMatches) -> Result<[u32; 3], Error> {
     }
 }
 
-fn song_from_midi(path: &Path, tempo_factor: f32, optimize: bool) -> Result<nspc::Song, Error> {
+fn song_from_midi(path: &Path, tempo_factor: f32, optimize: bool, verbose: bool) -> Result<nspc::Song, Error> {
     let mut midi = midi::MidiHandler::new();
-    midi.read(path)?;
-    nspc::Song::from_midi(&midi, tempo_factor, optimize)
+    midi.read(path, verbose)?;
+    nspc::Song::from_midi(&midi, tempo_factor, optimize, verbose)
 }

@@ -134,7 +134,10 @@ impl MidiHandler {
         }
     }
 
-    pub fn read(&mut self, path: &Path) -> Result<(), Error> {
+    pub fn read(&mut self, path: &Path, verbose: bool) -> Result<(), Error> {
+        if verbose {
+            println!("reading {:?}", path);
+        }
         {
             let mut midi_reader =
                 Reader::new(self, path).map_err(|err| format_err!("MIDI read error: {:?}", err))?;
@@ -142,7 +145,7 @@ impl MidiHandler {
                 .read()
                 .map_err(|err| format_err!("MIDI read error: {:?}", err))?;
         }
-        self.tracks_to_channels();
+        self.tracks_to_channels(verbose);
         for mut channel in &mut self.channels {
             let mut intervals = &mut channel.intervals;
             let mut last_interval_end = 0u32;
@@ -192,13 +195,16 @@ impl MidiHandler {
             vec![],
             vec![],
         ];
-        self.find_base_voices(0, &active_base_intervals, path)?;
+        self.find_base_voices(0, &active_base_intervals, path, verbose)?;
         self.channels_to_voices(path)?;
         Ok(())
     }
 
-    fn tracks_to_channels(&mut self) {
-        for track in &self.tracks {
+    fn tracks_to_channels(&mut self, verbose: bool) {
+        for (i, track) in self.tracks.iter().enumerate() {
+            if verbose {
+                println!("extracting events from midi track {}", i);
+            }
             let mut abs_time = 0;
             for message in &track.messages {
                 match *message {
@@ -235,24 +241,39 @@ impl MidiHandler {
         channel_idx: usize,
         active_base_intervals: &Vec<Vec<VoiceInterval>>,
         path: &Path,
+        verbose: bool,
     ) -> Result<(), Error> {
         if channel_idx == self.channels.len() {
             return Ok(());
         }
+        if verbose {
+            println!("find base voice for channel {}", channel_idx);
+        }
         let mut valid_voices = vec![];
+        let mut found_empty = false;
         for i in 0..8 {
-            if MidiHandler::channel_fits(
-                &self.channels[channel_idx].intervals,
-                &active_base_intervals[i],
-            ) {
-                valid_voices.push(i);
+            let empty = active_base_intervals[i].is_empty();
+            if !found_empty || !empty {
+                let intervals = &self.channels[channel_idx].intervals;
+                if MidiHandler::channel_fits(intervals, &active_base_intervals[i]) {
+                    valid_voices.push(i);
+                    if empty {
+                        found_empty = true;
+                    }
+                }
             }
         }
+        if verbose {
+            println!("non-overlapping voices: {:?}", valid_voices);
+        }
         for voice in valid_voices {
+            if verbose {
+                println!("trying {}", voice);
+            }
             let mut active_base_intervals = active_base_intervals.clone();
             active_base_intervals[voice]
                 .extend_from_slice(self.channels[channel_idx].intervals.as_slice());
-            match self.find_base_voices(channel_idx + 1, &active_base_intervals, path) {
+            match self.find_base_voices(channel_idx + 1, &active_base_intervals, path, verbose) {
                 Ok(_) => {
                     self.channels[channel_idx].base_voice = voice;
                     return Ok(());

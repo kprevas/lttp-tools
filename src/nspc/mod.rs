@@ -48,6 +48,7 @@ impl Song {
         midi: &MidiHandler,
         tempo_factor: f32,
         optimize_loops: bool,
+        verbose: bool,
     ) -> Result<Song, Error> {
         let tracks: Result<Vec<Track>, Error> = (0..8)
             .filter_map(|voice| {
@@ -79,7 +80,7 @@ impl Song {
                     let top_level_tracks = tracks.len();
                     Ok(Song {
                         parts,
-                        tracks: Song::optimize_call_loops(tracks, top_level_tracks),
+                        tracks: Song::optimize_call_loops(tracks, top_level_tracks, verbose),
                     })
                 } else {
                     Ok(Song { parts, tracks })
@@ -89,7 +90,7 @@ impl Song {
         }
     }
 
-    fn optimize_call_loops(tracks: Vec<Track>, top_level_tracks: usize) -> Vec<Track> {
+    fn optimize_call_loops(tracks: Vec<Track>, top_level_tracks: usize, verbose: bool) -> Vec<Track> {
         let mut seqtree = SeqTree::new();
         for (i, track) in tracks.iter().take(top_level_tracks).enumerate() {
             seqtree.add_track(track, i);
@@ -103,11 +104,15 @@ impl Song {
             let commands_used = seq.commands.len() + seq.locations.len();
             commands_replaced - commands_used
         });
+        if verbose {
+            println!("optimal call loop sequence {:?}", best_sequence);
+        };
         match best_sequence {
             None => tracks,
             Some(seq) => Song::optimize_call_loops(
                 Song::extract_sequence(tracks, seq, top_level_tracks),
                 top_level_tracks,
+                verbose,
             ),
         }
     }
