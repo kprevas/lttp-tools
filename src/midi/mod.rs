@@ -443,7 +443,7 @@ impl MidiHandler {
 
                             active_notes[ch].insert(note, next_voice);
                             let messages = &mut self.voices[next_voice].messages;
-                            if ch != last_channel_per_voice[next_voice].unwrap_or(ch) {
+                            if ch != last_channel_per_voice[next_voice].unwrap_or(0xff) {
                                 last_ctrl_change_per_channel[ch]
                                     .map(|event| messages.push((event.clone(), abs_time)));
                                 last_prog_change_per_channel[ch]
@@ -451,7 +451,7 @@ impl MidiHandler {
                                 last_pitch_bend_per_channel[ch]
                                     .map(|event| messages.push((event.clone(), abs_time)));
                                 last_channel_per_voice[next_voice] = Some(ch);
-                            }
+                            };
                             messages.push(next_event.clone());
                         }
                     }
@@ -462,12 +462,14 @@ impl MidiHandler {
                             None => (),
                         }
                     }
-                    MidiEvent::ControlChange { ch, .. } => {
+                    MidiEvent::ControlChange { ch, control, .. } => {
                         let ch = ch as usize;
                         let mut pushed_to_base = false;
                         for &voice in active_notes[ch].values() {
                             self.voices[voice].messages.push(next_event.clone());
-                            last_ctrl_change_per_voice[voice] = Some(&next_event.0);
+                            if control == 7 {
+                                last_ctrl_change_per_voice[voice] = Some(&next_event.0);
+                            }
                             if voice == self.channels[ch].base_voice {
                                 pushed_to_base = true;
                             }
@@ -477,7 +479,9 @@ impl MidiHandler {
                                 .messages
                                 .push(next_event.clone());
                         }
-                        last_ctrl_change_per_channel[ch] = Some(&next_event.0);
+                        if control == 7 {
+                            last_ctrl_change_per_channel[ch] = Some(&next_event.0);
+                        }
                     }
                     MidiEvent::ProgramChange { ch, .. } => {
                         let ch = ch as usize;
