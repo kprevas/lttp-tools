@@ -44,6 +44,7 @@ fn priority(message: &Message) -> u8 {
 struct VoiceInterval {
     start: u32,
     end: u32,
+    channel: usize,
     voices: usize,
 }
 
@@ -146,7 +147,7 @@ impl MidiHandler {
                 .map_err(|err| format_err!("MIDI read error: {:?}", err))?;
         }
         self.tracks_to_channels(verbose);
-        for mut channel in &mut self.channels {
+        for (i, mut channel) in &mut self.channels.iter_mut().enumerate() {
             let mut intervals = &mut channel.intervals;
             let mut last_interval_end = 0u32;
             let mut active_voices = 0usize;
@@ -158,6 +159,7 @@ impl MidiHandler {
                                 intervals.push(VoiceInterval {
                                     start: last_interval_end,
                                     end: abs_time,
+                                    channel: i,
                                     voices: active_voices,
                                 });
                             }
@@ -169,6 +171,7 @@ impl MidiHandler {
                                 intervals.push(VoiceInterval {
                                     start: last_interval_end,
                                     end: abs_time,
+                                    channel: i,
                                     voices: active_voices,
                                 });
                             }
@@ -254,11 +257,20 @@ impl MidiHandler {
         for i in 0..8 {
             let empty = active_base_intervals[i].is_empty();
             if !found_empty || !empty {
-                let intervals = &self.channels[channel_idx].intervals;
-                if MidiHandler::channel_fits(intervals, &active_base_intervals[i]) {
-                    valid_voices.push(i);
-                    if empty {
-                        found_empty = true;
+                match MidiHandler::overlapping_interval(
+                    &self.channels[channel_idx].intervals,
+                    &active_base_intervals[i],
+                ) {
+                    Some(interval) => {
+                        if verbose {
+                            println!("voice {} overlaps with {:?}", i, interval);
+                        }
+                    }
+                    None => {
+                        valid_voices.push(i);
+                        if empty {
+                            found_empty = true;
+                        }
                     }
                 }
             }
@@ -268,7 +280,7 @@ impl MidiHandler {
         }
         for voice in valid_voices {
             if verbose {
-                println!("trying {}", voice);
+                println!("channel {}: trying {}", channel_idx, voice);
             }
             let mut active_base_intervals = active_base_intervals.clone();
             active_base_intervals[voice]
@@ -286,7 +298,10 @@ impl MidiHandler {
         }))
     }
 
-    fn channel_fits(channel: &Vec<VoiceInterval>, active_intervals: &Vec<VoiceInterval>) -> bool {
+    fn overlapping_interval(
+        channel: &Vec<VoiceInterval>,
+        active_intervals: &Vec<VoiceInterval>,
+    ) -> Option<VoiceInterval> {
         for interval in channel {
             for existing_interval in active_intervals {
                 if interval.voices > 0
@@ -294,11 +309,11 @@ impl MidiHandler {
                     && interval.end > existing_interval.start
                     && interval.start < existing_interval.end
                 {
-                    return false;
+                    return Some(existing_interval.clone());
                 }
             }
         }
-        true
+        None
     }
 
     fn channels_to_voices(&mut self, path: &Path) -> Result<(), Error> {
