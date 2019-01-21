@@ -199,7 +199,7 @@ impl MidiHandler {
             vec![],
         ];
         self.find_base_voices(0, &active_base_intervals, path, verbose)?;
-        self.channels_to_voices(path)?;
+        self.channels_to_voices(path, verbose)?;
         Ok(())
     }
 
@@ -316,7 +316,7 @@ impl MidiHandler {
         None
     }
 
-    fn channels_to_voices(&mut self, path: &Path) -> Result<(), Error> {
+    fn channels_to_voices(&mut self, path: &Path, verbose: bool) -> Result<(), Error> {
         let channels = &self.channels;
         let mut last_abs_time: Vec<u32> = Vec::new();
         let mut curr_event_idx: Vec<usize> = Vec::new();
@@ -409,6 +409,13 @@ impl MidiHandler {
                                 .flat_map(|active_note| active_note.values())
                                 .any(|&voice| voice == base_voice)
                             {
+                                if verbose {
+                                    println!("channel {} base voice occupied at {} - base voices {:?} active notes {:?}",
+                                             ch,
+                                             abs_time,
+                                             self.channels.iter().map(|channel| channel.base_voice).collect::<Vec<usize>>(),
+                                             active_notes);
+                                }
                                 for possible_voice in 0..self.voices.len() {
                                     if !self
                                         .channels
@@ -420,6 +427,9 @@ impl MidiHandler {
                                             .flat_map(|active_note| active_note.values())
                                             .any(|&voice| voice == possible_voice)
                                     {
+                                        if verbose {
+                                            println!("using {}", possible_voice);
+                                        }
                                         next_voice = Some(possible_voice);
                                         break;
                                     }

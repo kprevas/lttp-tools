@@ -194,7 +194,7 @@ impl Rom {
 
         if verbose {
             println!(
-                "Writing {} bank to 0x{:X} starting at song {}.  Available chunk length is {:X}",
+                "Writing {} bank to 0x{:X} starting at song {}.  Available chunk length is 0x{:X}",
                 bank.name, rom_addr, first_song, chunk_length
             );
         }
@@ -213,7 +213,10 @@ impl Rom {
                     bank.name
                 );
                 if verbose {
-                    println!("Switching to overflow chunk");
+                    println!(
+                        "Switching to overflow chunk - data size before switch 0x{:X}",
+                        chunk_length - song_offset
+                    );
                 }
                 song_offset = 0;
                 rom_addr = overflow_chunk_addr;
@@ -282,7 +285,10 @@ impl Rom {
                         bank.name
                     );
                     if verbose {
-                        println!("Switching to overflow chunk");
+                        println!(
+                            "Switching to overflow chunk - data size before switch 0x{:X}",
+                            chunk_length - song_offset
+                        );
                     }
                     track_data_offset = 0;
                     rom_addr = overflow_chunk_addr;
@@ -353,6 +359,13 @@ impl Rom {
                 romdata[call_loop_addr] = track_bytes.1;
             });
 
+            if verbose {
+                println!(
+                    "{} - total track size in current bank 0x{:X}",
+                    song_def.input.to_str().unwrap(),
+                    track_data_offset - song_offset,
+                );
+            }
             song_offset = track_data_offset;
             pb.inc();
         }
