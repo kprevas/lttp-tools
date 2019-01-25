@@ -232,7 +232,14 @@ impl Rom {
 
         for song_def in &bank.songs {
             bank_pb.message(&format!("{} ", song_def.input.to_str().unwrap()));
-            bank_pb.set((song_offset + if rom_addr == base_chunk_addr { 0 } else { base_chunk_len }) as u64);
+            bank_pb.set(
+                (song_offset
+                    + if rom_addr == base_chunk_addr {
+                        0
+                    } else {
+                        base_chunk_len
+                    }) as u64,
+            );
 
             let song_data = converter(song_def.input.as_path(), song_def.tempo_factor)?;
 
@@ -394,7 +401,11 @@ impl Rom {
                 println!(
                     "{} - total track size in current bank 0x{:X}",
                     song_def.input.to_str().unwrap(),
-                    track_data_offset - song_offset,
+                    if track_data_offset > song_offset {
+                        track_data_offset - song_offset
+                    } else {
+                        track_data_offset
+                    },
                 );
             }
             song_offset = track_data_offset;
