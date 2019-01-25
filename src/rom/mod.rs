@@ -28,6 +28,12 @@ fn addr_to_bytes(addr: usize) -> (u8, u8) {
     ((addr >> 8 & 0xFF) as u8, (addr & 0xFF) as u8)
 }
 
+struct RomCallLoopRef {
+    pub target_track: usize,
+    pub chunk_base: usize,
+    pub ref_pos: u64,
+}
+
 struct Chunk {
     offset_addr: usize,
     length: usize,
@@ -306,11 +312,13 @@ impl Rom {
             let mut track_data_offset = part_data_offset + 16;
             let mut track_addrs = Vec::<usize>::new();
 
-            let mut call_loops = Vec::<CallLoopRef>::new();
+            let mut call_loops = Vec::<RomCallLoopRef>::new();
 
             for i in 0..song_data.get_num_tracks() {
                 let track_data = Vec::<u8>::new();
                 let mut track_call_loops = Vec::<CallLoopRef>::new();
+                let mut pre_chunk_switch_track_call_loops = Vec::<CallLoopRef>::new();
+                let track_start_offset = track_data_offset;
                 let mut cursor = Cursor::new(track_data);
                 song_data.write_track(&mut cursor, i, &mut track_call_loops)?;
                 let track_data = cursor.into_inner();
@@ -332,6 +340,8 @@ impl Rom {
                     rom_addr = overflow_chunk_addr;
                     chunk_length = overflow_chunk_len;
                     aram_base_addr = aram_overflow_base;
+                    pre_chunk_switch_track_call_loops.extend_from_slice(track_call_loops.as_slice());
+                    track_call_loops.clear();
                 };
 
                 if verbose {
@@ -348,10 +358,18 @@ impl Rom {
                         track_data.iter().cloned(),
                     );
                     track_addrs.push(aram_base_addr + track_data_offset);
-                    track_call_loops.iter().for_each(|call_loop| {
-                        call_loops.push(CallLoopRef {
+                    pre_chunk_switch_track_call_loops.iter().for_each(|call_loop| {
+                        call_loops.push(RomCallLoopRef {
                             target_track: call_loop.target_track,
-                            ref_pos: track_data_offset as u64 + call_loop.ref_pos,
+                            chunk_base: base_chunk_addr + track_start_offset,
+                            ref_pos: call_loop.ref_pos,
+                        })
+                    });
+                    track_call_loops.iter().for_each(|call_loop| {
+                        call_loops.push(RomCallLoopRef {
+                            target_track: call_loop.target_track,
+                            chunk_base: rom_addr + track_data_offset,
+                            ref_pos: call_loop.ref_pos,
                         })
                     });
                     track_data_offset += track_data.len();
@@ -385,7 +403,7 @@ impl Rom {
             });
 
             call_loops.iter().for_each(|call_loop| {
-                let call_loop_addr = rom_addr + (call_loop.ref_pos as usize);
+                let call_loop_addr = call_loop.chunk_base + (call_loop.ref_pos as usize);
                 if verbose {
                     println!(
                         "Writing loop address 0x{:X} to CallLoop instruction at 0x{:X}",
