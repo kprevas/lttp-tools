@@ -34,7 +34,7 @@
       "input": "gospel-tune.mid"
     },
     "Soldier": {
-      "input": "Happy-Cowboy.mid"
+      "input": "Tuba-and-Banjo.mid"
     },
     "Mountain": {
       "input": "Mystic-Temple.mid"
@@ -93,7 +93,7 @@
       "input": "not-mozart.mid"
     },
     "Last Boss": {
-      "input": "Tough-Shootist.mid"
+      "input": "Pomp-March.mid"
     }
   },
   "ending": {
@@ -101,7 +101,7 @@
       "input": "Transwaltz.mid"
     },
     "Ending": {
-      "input": "Tuba-and-Banjo.mid"
+      "input": "Celtic-Romance-Piano.mid"
     },
     "Staff": {
       "input": "variations-in-blue.mid"
