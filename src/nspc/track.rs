@@ -157,7 +157,7 @@ impl Track {
                             if note_start.is_some() {
                                 bail!("More than one voice needed on voice {}: notes start at {} and {}", voice, note_start.unwrap(), abs_time);
                             }
-                            note_start = Some(abs_time)
+                            note_start = Some(last_note_end)
                         }
                         MidiEvent::PolyphonicKeyPressure { .. } => {
                             // TODO
