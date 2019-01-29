@@ -22,14 +22,13 @@ pub mod rom;
 pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
     let optimize = !matches.is_present("skip_optimization");
     let verbose = matches.is_present("verbose");
-    let converter =
-        move |path: &Path, tempo_factor| {
-            if path.extension().map_or(false, |ext| ext.eq("mid")) {
-                song_from_midi(path, tempo_factor, optimize, verbose)
-            } else {
-                Ok(nspc::Song::from_json(path))
-            }
-        };
+    let converter = move |path: &Path, tempo_factor| {
+        if path.extension().map_or(false, |ext| ext.eq("mid")) {
+            song_from_midi(path, tempo_factor, optimize, verbose)
+        } else {
+            Ok(nspc::Song::from_json(path))
+        }
+    };
     if let Some(matches) = matches.subcommand_matches("build_rom") {
         let manifest_path = matches.value_of("MANIFEST");
         let rom_path = matches.value_of("ROM");
@@ -43,7 +42,11 @@ pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
         )?;
     } else if let Some(matches) = matches.subcommand_matches("load_rom") {
         let rom_path = matches.value_of("ROM");
-        rom::Rom::load(Path::new(rom_path.unwrap()), read_bank_addrs(&matches)?, verbose)?;
+        rom::Rom::load(
+            Path::new(rom_path.unwrap()),
+            read_bank_addrs(&matches)?,
+            verbose,
+        )?;
     } else if let Some(matches) = matches.subcommand_matches("all_overworld") {
         let input_path = matches.value_of("INPUT");
         let rom_path = matches.value_of("ROM");
@@ -54,12 +57,23 @@ pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
             &converter,
             verbose,
         )?;
+    } else if let Some(matches) = matches.subcommand_matches("file_select") {
+        let input_path = matches.value_of("INPUT");
+        let rom_path = matches.value_of("ROM");
+        rom::Rom::write_file_select_as(
+            Path::new(input_path.unwrap()),
+            Path::new(rom_path.unwrap()),
+            read_bank_addrs(matches)?,
+            &converter,
+            verbose,
+        )?;
     } else if let Some(matches) = matches.subcommand_matches("dump_midi") {
         let input_path = matches.value_of("INPUT");
         let mut midi = midi::MidiHandler::new();
-        midi.read(Path::new(input_path.unwrap()), verbose).unwrap_or_else(|err| {
-            println!("Error reading MIDI: {:?}", err);
-        });
+        midi.read(Path::new(input_path.unwrap()), verbose)
+            .unwrap_or_else(|err| {
+                println!("Error reading MIDI: {:?}", err);
+            });
         println!("{:#?}", midi);
     } else if let Some(matches) = matches.subcommand_matches("midi2json") {
         let input_path = matches.value_of("INPUT");
@@ -86,7 +100,12 @@ fn read_bank_addrs(matches: &ArgMatches) -> Result<[u32; 3], Error> {
     }
 }
 
-fn song_from_midi(path: &Path, tempo_factor: f32, optimize: bool, verbose: bool) -> Result<nspc::Song, Error> {
+fn song_from_midi(
+    path: &Path,
+    tempo_factor: f32,
+    optimize: bool,
+    verbose: bool,
+) -> Result<nspc::Song, Error> {
     let mut midi = midi::MidiHandler::new();
     midi.read(path, verbose)?;
     nspc::Song::from_midi(&midi, tempo_factor, optimize, verbose)

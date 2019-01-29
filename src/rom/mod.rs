@@ -237,7 +237,10 @@ impl Rom {
         let mut song_offset = first_song_addr - aram_base_addr;
 
         for song_def in &bank.songs {
-            bank_pb.message(&format!("{} ", song_def.input.to_str().unwrap()));
+            bank_pb.message(&match &song_def.input {
+                Some(path) => format!("{} ", path.to_str().unwrap()),
+                None => "[empty song] ".to_string(),
+            });
             bank_pb.set(
                 (song_offset
                     + if rom_addr == base_chunk_addr {
@@ -247,7 +250,10 @@ impl Rom {
                     }) as u64,
             );
 
-            let song_data = converter(song_def.input.as_path(), song_def.tempo_factor)?;
+            let song_data = match &song_def.input {
+                Some(path) => converter(&path, song_def.tempo_factor)?,
+                None => Song::empty()?,
+            };
 
             // check if non-track data fits in chunk
             if song_offset + (if song_def.loops { 8 } else { 4 }) + 16 > chunk_length {
@@ -340,7 +346,8 @@ impl Rom {
                     rom_addr = overflow_chunk_addr;
                     chunk_length = overflow_chunk_len;
                     aram_base_addr = aram_overflow_base;
-                    pre_chunk_switch_track_call_loops.extend_from_slice(track_call_loops.as_slice());
+                    pre_chunk_switch_track_call_loops
+                        .extend_from_slice(track_call_loops.as_slice());
                     track_call_loops.clear();
                 };
 
@@ -358,13 +365,15 @@ impl Rom {
                         track_data.iter().cloned(),
                     );
                     track_addrs.push(aram_base_addr + track_data_offset);
-                    pre_chunk_switch_track_call_loops.iter().for_each(|call_loop| {
-                        call_loops.push(RomCallLoopRef {
-                            target_track: call_loop.target_track,
-                            chunk_base: base_chunk_addr + track_start_offset,
-                            ref_pos: call_loop.ref_pos,
-                        })
-                    });
+                    pre_chunk_switch_track_call_loops
+                        .iter()
+                        .for_each(|call_loop| {
+                            call_loops.push(RomCallLoopRef {
+                                target_track: call_loop.target_track,
+                                chunk_base: base_chunk_addr + track_start_offset,
+                                ref_pos: call_loop.ref_pos,
+                            })
+                        });
                     track_call_loops.iter().for_each(|call_loop| {
                         call_loops.push(RomCallLoopRef {
                             target_track: call_loop.target_track,
@@ -418,7 +427,10 @@ impl Rom {
             if verbose {
                 println!(
                     "{} - total track size in current bank 0x{:X}",
-                    song_def.input.to_str().unwrap(),
+                    match &song_def.input {
+                        Some(path) => path.to_str().unwrap(),
+                        None => "[empty song]",
+                    },
                     if track_data_offset > song_offset {
                         track_data_offset - song_offset
                     } else {
@@ -444,6 +456,23 @@ impl Rom {
     ) -> Result<(), Error> {
         Rom::write(
             &Manifest::single_song(song_path),
+            rom_path,
+            bank_base_addrs,
+            converter,
+            verbose,
+        )?;
+        Ok(())
+    }
+
+    pub fn write_file_select_as(
+        song_path: &Path,
+        rom_path: &Path,
+        bank_base_addrs: [u32; 3],
+        converter: &Fn(&Path, f32) -> Result<Song, Error>,
+        verbose: bool,
+    ) -> Result<(), Error> {
+        Rom::write(
+            &Manifest::file_select(song_path),
             rom_path,
             bank_base_addrs,
             converter,

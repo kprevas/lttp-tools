@@ -90,7 +90,11 @@ impl Song {
         }
     }
 
-    fn optimize_call_loops(tracks: Vec<Track>, top_level_tracks: usize, verbose: bool) -> Vec<Track> {
+    fn optimize_call_loops(
+        tracks: Vec<Track>,
+        top_level_tracks: usize,
+        verbose: bool,
+    ) -> Vec<Track> {
         let mut seqtree = SeqTree::new();
         for (i, track) in tracks.iter().take(top_level_tracks).enumerate() {
             seqtree.add_track(track, i);
@@ -166,6 +170,13 @@ impl Song {
     pub fn write_to_json(&self, path: &Path) {
         let out = File::create(path).unwrap();
         serde_json::to_writer_pretty(out, self).unwrap()
+    }
+
+    pub fn empty() -> Result<Song, Error> {
+        Ok(Song {
+            parts: vec![Part { tracks: vec![0] }],
+            tracks: vec![Track::new(&vec![], 24, 0.3, 0)?],
+        })
     }
 
     pub fn get_part_tracks(&self, part_idx: usize) -> &[usize] {

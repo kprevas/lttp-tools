@@ -44,7 +44,7 @@ const ENDING_SONGS: [&str; 3] = ["Triforce", "Ending", "Staff"];
 
 #[derive(Debug)]
 pub struct Song {
-    pub input: PathBuf,
+    pub input: Option<PathBuf>,
     pub tempo_factor: f32,
     pub loops: bool,
 }
@@ -52,11 +52,27 @@ pub struct Song {
 impl Song {
     pub fn new(input: &Value) -> Song {
         Song {
-            input: PathBuf::from(input["input"].as_str().unwrap()),
+            input: Some(PathBuf::from(input["input"].as_str().unwrap())),
             tempo_factor: input["tempoAdjust"]
                 .as_f64()
                 .unwrap_or(DEFAULT_TEMPO_ADJUST as f64) as f32,
             loops: input["loop"].as_bool().unwrap_or(true),
+        }
+    }
+
+    pub fn default(path: &Path) -> Song {
+        Song {
+            input: Some(path.to_path_buf()),
+            tempo_factor: DEFAULT_TEMPO_ADJUST,
+            loops: true,
+        }
+    }
+
+    pub fn empty() -> Song {
+        Song {
+            input: None,
+            tempo_factor: DEFAULT_TEMPO_ADJUST,
+            loops: false,
         }
     }
 }
@@ -103,187 +119,103 @@ impl Manifest {
                 Bank {
                     name: "Overworld",
                     songs: vec![
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
                     ],
                 },
                 Bank {
                     name: "Indoor",
                     songs: vec![
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
                     ],
                 },
                 Bank {
                     name: "Ending",
                     songs: vec![
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
-                        Song {
-                            input: song_path.to_path_buf(),
-                            tempo_factor: 0.3,
-                            loops: true,
-                        },
+                        Song::default(song_path),
+                        Song::default(song_path),
+                        Song::default(song_path),
                     ],
+                },
+            ],
+        }
+    }
+
+    pub fn file_select(song_path: &Path) -> Manifest {
+        Manifest {
+            banks: [
+                Bank {
+                    name: "Overworld",
+                    songs: vec![
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::default(song_path),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                    ],
+                },
+                Bank {
+                    name: "Indoor",
+                    songs: vec![
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                        Song::empty(),
+                    ],
+                },
+                Bank {
+                    name: "Ending",
+                    songs: vec![Song::empty(), Song::empty(), Song::empty()],
                 },
             ],
         }

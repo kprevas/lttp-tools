@@ -27,6 +27,12 @@ fn main() -> Result<(), Error> {
             (@arg ROM: +required "the ROM file to use")
             (@arg bank_addrs: --bank_addrs #{3,3} +use_delimiter "song bank addresses in the ROM")
         )
+        (@subcommand file_select =>
+            (about: "convert a MIDI or JSON file and replace file select music with it")
+            (@arg INPUT: +required "the input file to use")
+            (@arg ROM: +required "the ROM file to use")
+            (@arg bank_addrs: --bank_addrs #{3,3} +use_delimiter "song bank addresses in the ROM")
+        )
         (@subcommand dump_midi =>
             (about: "read a MIDI file and dump it to stdout")
             (@arg INPUT: +required "the input file to use")
