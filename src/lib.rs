@@ -1,6 +1,7 @@
 extern crate byteorder;
 extern crate clap;
 extern crate ghakuf;
+extern crate itertools;
 extern crate serde;
 extern crate serde_json;
 

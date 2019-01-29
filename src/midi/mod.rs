@@ -1,6 +1,7 @@
 use failure::Error;
 use ghakuf::messages::*;
 use ghakuf::reader::*;
+use itertools::*;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -336,11 +337,16 @@ impl MidiHandler {
             last_pitch_bend_per_channel.push(None);
             active_notes.push(HashMap::new());
         }
-        for _ in 0..self.voices.len() {
+        for voice in 0..self.voices.len() {
             last_ctrl_change_per_voice.push(None);
             last_prog_change_per_voice.push(None);
             last_pitch_bend_per_voice.push(None);
-            last_channel_per_voice.push(None);
+            last_channel_per_voice.push(
+                self.channels
+                    .iter()
+                    .find_position(|ch| ch.base_voice == voice)
+                    .map(|(idx, _)| idx),
+            );
         }
         let mut channels_done = channels
             .iter()
