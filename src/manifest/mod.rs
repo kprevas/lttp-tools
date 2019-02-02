@@ -1,3 +1,4 @@
+use failure::Error;
 use serde_json;
 use serde_json::Value;
 use std::fs::File;
@@ -50,9 +51,16 @@ pub struct Song {
 }
 
 impl Song {
-    pub fn new(input: &Value) -> Song {
+    pub fn new(input: &Value, base_path: &Path) -> Song {
+        let path = Path::new(input["input"].as_str().unwrap());
+        let path_buf;
+        if path.is_absolute() {
+            path_buf = path.to_path_buf();
+        } else {
+            path_buf = base_path.join(path).to_path_buf();
+        }
         Song {
-            input: Some(PathBuf::from(input["input"].as_str().unwrap())),
+            input: Some(path_buf),
             tempo_factor: input["tempoAdjust"]
                 .as_f64()
                 .unwrap_or(DEFAULT_TEMPO_ADJUST as f64) as f32,
@@ -84,12 +92,12 @@ pub struct Bank {
 }
 
 impl Bank {
-    pub fn new(input: &Value, name: &'static str, song_names: &[&str]) -> Bank {
+    pub fn new(input: &Value, name: &'static str, song_names: &[&str], base_path: &Path) -> Bank {
         Bank {
             name,
             songs: song_names
                 .iter()
-                .map(|&song_name| Song::new(&input[song_name]))
+                .map(|&song_name| Song::new(&input[song_name], base_path))
                 .collect(),
         }
     }
@@ -101,16 +109,17 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    pub fn new(path: &Path) -> Manifest {
-        let reader = File::open(path).unwrap();
-        let json: Value = serde_json::from_reader(reader).unwrap();
-        Manifest {
+    pub fn new(path: &Path) -> Result<Manifest, Error> {
+        let reader = File::open(path)?;
+        let json: Value = serde_json::from_reader(reader)?;
+        let parent = path.parent().unwrap();
+        Ok(Manifest {
             banks: [
-                Bank::new(&json["overworld"], "overworld", &OVERWORLD_SONGS),
-                Bank::new(&json["indoor"], "indoor", &INDOOR_SONGS),
-                Bank::new(&json["ending"], "ending", &ENDING_SONGS),
+                Bank::new(&json["overworld"], "overworld", &OVERWORLD_SONGS, parent),
+                Bank::new(&json["indoor"], "indoor", &INDOOR_SONGS, parent),
+                Bank::new(&json["ending"], "ending", &ENDING_SONGS, parent),
             ],
-        }
+        })
     }
 
     pub fn single_song(song_path: &Path) -> Manifest {

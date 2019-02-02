@@ -399,7 +399,7 @@ fn write_bank(
     Ok(())
 }
 
-pub fn write_all_songs_as(
+pub fn write_all_overworld(
     song_path: &Path,
     rom_path: &Path,
     bank_base_addrs: [u32; 3],
@@ -416,7 +416,7 @@ pub fn write_all_songs_as(
     Ok(())
 }
 
-pub fn write_file_select_as(
+pub fn write_file_select(
     song_path: &Path,
     rom_path: &Path,
     bank_base_addrs: [u32; 3],
@@ -441,7 +441,7 @@ pub fn gen_fake_rom(
     let mut rom_file = OpenOptions::new().read(true).open(rom_path)?;
     let mut romdata = Vec::new();
     rom_file.read_to_end(&mut romdata)?;
-    let mut out_romdata = vec![0u8;romdata.len()];
+    let mut out_romdata = vec![0u8; romdata.len()];
 
     for &base_addr in bank_base_addrs.iter() {
         let bank_addr = romdata[snes_to_pc_addr(base_addr + 8)];
@@ -461,7 +461,10 @@ pub fn gen_fake_rom(
         }
     }
 
-    let mut out_file = OpenOptions::new().create(true).write(true).open(output_path)?;
+    let mut out_file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open(output_path)?;
     out_file.write(&out_romdata)?;
     Ok(())
 }

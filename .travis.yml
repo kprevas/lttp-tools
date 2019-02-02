@@ -12,6 +12,7 @@ rust:
 
 script:
   - cargo build --release
+  - cargo test --release
 
 deploy:
   provider: releases

@@ -23,44 +23,21 @@ pub mod rom;
 pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
     let optimize = !matches.is_present("skip_optimization");
     let verbose = matches.is_present("verbose");
-    let converter = move |path: &Path, tempo_factor| {
-        if path.extension().map_or(false, |ext| ext.eq("mid")) {
-            song_from_midi(path, tempo_factor, optimize, verbose)
-        } else {
-            Ok(nspc::Song::from_json(path))
-        }
-    };
     if let Some(matches) = matches.subcommand_matches("build_rom") {
-        let manifest_path = matches.value_of("MANIFEST");
-        let rom_path = matches.value_of("ROM");
-        let manifest = manifest::Manifest::new(Path::new(manifest_path.unwrap()));
-        rom::write(
-            &manifest,
-            Path::new(rom_path.unwrap()),
-            read_bank_addrs(&matches)?,
-            &converter,
-            verbose,
-        )?;
+        let manifest_path = matches.value_of("MANIFEST").unwrap();
+        let rom_path = matches.value_of("ROM").unwrap();
+        let bank_addrs = read_bank_addrs(&matches)?;
+        build_rom(manifest_path, rom_path, bank_addrs, optimize, verbose)?;
     } else if let Some(matches) = matches.subcommand_matches("all_overworld") {
-        let input_path = matches.value_of("INPUT");
-        let rom_path = matches.value_of("ROM");
-        rom::write_all_songs_as(
-            Path::new(input_path.unwrap()),
-            Path::new(rom_path.unwrap()),
-            read_bank_addrs(matches)?,
-            &converter,
-            verbose,
-        )?;
+        let input_path = matches.value_of("INPUT").unwrap();
+        let rom_path = matches.value_of("ROM").unwrap();
+        let bank_addrs = read_bank_addrs(matches)?;
+        write_all_overworld(input_path, rom_path, bank_addrs, optimize, verbose)?;
     } else if let Some(matches) = matches.subcommand_matches("file_select") {
-        let input_path = matches.value_of("INPUT");
-        let rom_path = matches.value_of("ROM");
-        rom::write_file_select_as(
-            Path::new(input_path.unwrap()),
-            Path::new(rom_path.unwrap()),
-            read_bank_addrs(matches)?,
-            &converter,
-            verbose,
-        )?;
+        let input_path = matches.value_of("INPUT").unwrap();
+        let rom_path = matches.value_of("ROM").unwrap();
+        let bank_addrs = read_bank_addrs(matches)?;
+        write_file_select(input_path, rom_path, bank_addrs, optimize, verbose)?;
     } else if let Some(matches) = matches.subcommand_matches("dump_midi") {
         let input_path = matches.value_of("INPUT");
         let mut midi = midi::MidiHandler::new();
@@ -86,6 +63,69 @@ pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
         )?;
     }
     Ok(())
+}
+
+pub fn build_rom(
+    manifest_path: &str,
+    rom_path: &str,
+    bank_addrs: [u32; 3],
+    optimize: bool,
+    verbose: bool,
+) -> Result<(), Error> {
+    let manifest = manifest::Manifest::new(Path::new(manifest_path))?;
+    rom::write(
+        &manifest,
+        Path::new(rom_path),
+        bank_addrs,
+        converter(optimize, verbose).as_ref(),
+        verbose,
+    )?;
+    Ok(())
+}
+
+pub fn write_all_overworld(
+    input_path: &str,
+    rom_path: &str,
+    bank_addrs: [u32; 3],
+    optimize: bool,
+    verbose: bool,
+) -> Result<(), Error> {
+    rom::write_all_overworld(
+        Path::new(input_path),
+        Path::new(rom_path),
+        bank_addrs,
+        converter(optimize, verbose).as_ref(),
+        verbose,
+    )?;
+    Ok(())
+}
+
+pub fn write_file_select(
+    input_path: &str,
+    rom_path: &str,
+    bank_addrs: [u32; 3],
+    optimize: bool,
+    verbose: bool,
+) -> Result<(), Error> {
+    rom::write_file_select(
+        Path::new(input_path),
+        Path::new(rom_path),
+        bank_addrs,
+        converter(optimize, verbose).as_ref(),
+        verbose,
+    )?;
+    Ok(())
+}
+
+fn converter(optimize: bool, verbose: bool) -> Box<Fn(&Path, f32) -> Result<nspc::Song, Error>> {
+    let converter = move |path: &Path, tempo_factor| {
+        if path.extension().map_or(false, |ext| ext.eq("mid")) {
+            song_from_midi(path, tempo_factor, optimize, verbose)
+        } else {
+            Ok(nspc::Song::from_json(path))
+        }
+    };
+    Box::new(converter)
 }
 
 fn read_bank_addrs(matches: &ArgMatches) -> Result<[u32; 3], Error> {
