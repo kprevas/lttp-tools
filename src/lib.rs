@@ -76,6 +76,14 @@ pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
         midi.read(Path::new(input_path.unwrap()), verbose)?;
         let song = nspc::Song::from_midi(&midi, manifest::DEFAULT_TEMPO_ADJUST, optimize, verbose)?;
         song.write_to_json(Path::new(output_path.unwrap()));
+    } else if let Some(matches) = matches.subcommand_matches("gen_fake_rom") {
+        let input_path = matches.value_of("INPUT");
+        let output_path = matches.value_of("OUTPUT");
+        rom::gen_fake_rom(
+            Path::new(input_path.unwrap()),
+            Path::new(output_path.unwrap()),
+            read_bank_addrs(matches)?,
+        )?;
     }
     Ok(())
 }

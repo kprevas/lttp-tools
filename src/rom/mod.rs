@@ -2,7 +2,6 @@ extern crate pbr;
 
 use self::pbr::*;
 use failure::Error;
-use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::io::{Cursor, SeekFrom};
@@ -38,7 +37,6 @@ struct Chunk {
     offset_addr: usize,
     length: usize,
     aram_addr: usize,
-    data: Vec<u8>,
 }
 
 impl Chunk {
@@ -47,13 +45,18 @@ impl Chunk {
         let aram_addr =
             ((romdata[start_addr + 3] as usize) << 8) + (romdata[start_addr + 2] as usize);
         let offset_addr = start_addr + 4;
-        let data = Vec::from(&romdata[offset_addr..(offset_addr + length)]);
         Chunk {
             offset_addr,
             length,
             aram_addr,
-            data,
         }
+    }
+
+    fn write_header(&self, romdata: &mut Vec<u8>, start_addr: usize) {
+        romdata[start_addr] = (self.length & 0xff) as u8;
+        romdata[start_addr + 1] = ((self.length >> 8) & 0xff) as u8;
+        romdata[start_addr + 2] = (self.aram_addr & 0xff) as u8;
+        romdata[start_addr + 3] = ((self.aram_addr >> 8) & 0xff) as u8;
     }
 }
 
@@ -427,5 +430,38 @@ pub fn write_file_select_as(
         converter,
         verbose,
     )?;
+    Ok(())
+}
+
+pub fn gen_fake_rom(
+    rom_path: &Path,
+    output_path: &Path,
+    bank_base_addrs: [u32; 3],
+) -> Result<(), Error> {
+    let mut rom_file = OpenOptions::new().read(true).open(rom_path)?;
+    let mut romdata = Vec::new();
+    rom_file.read_to_end(&mut romdata)?;
+    let mut out_romdata = vec![0u8;romdata.len()];
+
+    for &base_addr in bank_base_addrs.iter() {
+        let bank_addr = romdata[snes_to_pc_addr(base_addr + 8)];
+        let high_addr = romdata[snes_to_pc_addr(base_addr + 4)];
+        let low_addr = romdata[snes_to_pc_addr(base_addr)];
+        out_romdata[snes_to_pc_addr(base_addr + 8)] = bank_addr;
+        out_romdata[snes_to_pc_addr(base_addr + 4)] = high_addr;
+        out_romdata[snes_to_pc_addr(base_addr)] = low_addr;
+
+        let mut addr = snes_bytes_to_pc_addr(bank_addr, high_addr, low_addr);
+        let mut last_chunk_length = 0xffffusize;
+        while last_chunk_length != 0 {
+            let chunk = Chunk::load(&romdata, addr);
+            chunk.write_header(&mut out_romdata, addr);
+            last_chunk_length = chunk.length;
+            addr = chunk.offset_addr + chunk.length;
+        }
+    }
+
+    let mut out_file = OpenOptions::new().create(true).write(true).open(output_path)?;
+    out_file.write(&out_romdata)?;
     Ok(())
 }

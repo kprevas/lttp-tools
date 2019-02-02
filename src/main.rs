@@ -37,6 +37,11 @@ fn main() -> Result<(), Error> {
             (@arg INPUT: +required "the input file to use")
             (@arg OUTPUT: +required "the output file to use")
         )
+        (@subcommand gen_fake_rom =>
+            (about: "generate a dummy ROM file from a real one")
+            (@arg INPUT: +required "the real ROM file to use")
+            (@arg OUTPUT: +required "the output file to use")
+        )
     )
     .get_matches();
     midi2spc::run(matches)
