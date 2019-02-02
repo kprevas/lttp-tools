@@ -34,24 +34,17 @@ pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
         let manifest_path = matches.value_of("MANIFEST");
         let rom_path = matches.value_of("ROM");
         let manifest = manifest::Manifest::new(Path::new(manifest_path.unwrap()));
-        rom::Rom::write(
+        rom::write(
             &manifest,
             Path::new(rom_path.unwrap()),
             read_bank_addrs(&matches)?,
             &converter,
             verbose,
         )?;
-    } else if let Some(matches) = matches.subcommand_matches("load_rom") {
-        let rom_path = matches.value_of("ROM");
-        rom::Rom::load(
-            Path::new(rom_path.unwrap()),
-            read_bank_addrs(&matches)?,
-            verbose,
-        )?;
     } else if let Some(matches) = matches.subcommand_matches("all_overworld") {
         let input_path = matches.value_of("INPUT");
         let rom_path = matches.value_of("ROM");
-        rom::Rom::write_all_songs_as(
+        rom::write_all_songs_as(
             Path::new(input_path.unwrap()),
             Path::new(rom_path.unwrap()),
             read_bank_addrs(matches)?,
@@ -61,7 +54,7 @@ pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
     } else if let Some(matches) = matches.subcommand_matches("file_select") {
         let input_path = matches.value_of("INPUT");
         let rom_path = matches.value_of("ROM");
-        rom::Rom::write_file_select_as(
+        rom::write_file_select_as(
             Path::new(input_path.unwrap()),
             Path::new(rom_path.unwrap()),
             read_bank_addrs(matches)?,

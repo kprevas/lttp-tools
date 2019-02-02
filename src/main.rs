@@ -16,11 +16,6 @@ fn main() -> Result<(), Error> {
             (@arg ROM: +required "the ROM file to use")
             (@arg bank_addrs: --bank_addrs #{3,3} +use_delimiter "song bank addresses in the ROM")
         )
-        (@subcommand load_rom =>
-            (about: "load in existing songs from a ROM")
-            (@arg ROM: +required "the ROM file to use")
-            (@arg bank_addrs: --bank_addrs #{3,3} +use_delimiter "song bank addresses in the ROM")
-        )
         (@subcommand all_overworld =>
             (about: "convert a MIDI or JSON file and replace all music with it")
             (@arg INPUT: +required "the input file to use")
