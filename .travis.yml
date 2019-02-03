@@ -12,7 +12,7 @@ rust:
 
 script:
   - cargo build --release
-  - cargo test --verbose -j 1
+  - cargo test --verbose --test-threads=1
 
 deploy:
   provider: releases
