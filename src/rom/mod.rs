@@ -191,7 +191,7 @@ fn write_bank(
 
     for song_def in &bank.songs {
         bank_pb.message(&match &song_def.input {
-            Some(path) => format!("{} ", path.to_str().unwrap()),
+            Some(path) => format!("{} ", path.file_name().unwrap().to_str().unwrap()),
             None => "[empty song] ".to_string(),
         });
         bank_pb.set(
@@ -380,7 +380,7 @@ fn write_bank(
             println!(
                 "{} - total track size in current bank 0x{:X}",
                 match &song_def.input {
-                    Some(path) => path.to_str().unwrap(),
+                    Some(path) => path.file_name().unwrap().to_str().unwrap(),
                     None => "[empty song]",
                 },
                 if track_data_offset > song_offset {
