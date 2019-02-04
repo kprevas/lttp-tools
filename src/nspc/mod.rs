@@ -99,15 +99,7 @@ impl Song {
         for (i, track) in tracks.iter().take(top_level_tracks).enumerate() {
             seqtree.add_track(track, i);
         }
-        let best_sequence = seqtree.valid_sequences().max_by_key(|seq| {
-            let commands_replaced = seq
-                .locations
-                .iter()
-                .fold(0, |acc, &loc| acc + loc.repeat_count as usize)
-                * seq.commands.len();
-            let commands_used = seq.commands.len() + seq.locations.len();
-            commands_replaced - commands_used
-        });
+        let best_sequence = seqtree.best_sequence();
         if verbose {
             println!("optimal call loop sequence {:?}", best_sequence);
         };
