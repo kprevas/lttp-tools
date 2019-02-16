@@ -9,7 +9,7 @@ mod tests {
     fn convert_commands(commands: &[Command]) -> Vec<ParameterizedCommand> {
         commands
             .iter()
-            .map(|cmd| ParameterizedCommand::new(None, None, cmd.clone()))
+            .map(|cmd| ParameterizedCommand::new(None, None, None, cmd.clone()))
             .collect::<Vec<ParameterizedCommand>>()
     }
 
@@ -33,9 +33,9 @@ mod tests {
         tree.add_track(
             &Track {
                 commands: vec![
-                    ParameterizedCommand::new(None, None, Command::Note(1)),
-                    ParameterizedCommand::new(None, None, Command::Note(2)),
-                    ParameterizedCommand::new(None, None, Command::Note(3)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(1)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(2)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(3)),
                 ],
             },
             0,
@@ -55,9 +55,9 @@ mod tests {
         tree.add_track(
             &Track {
                 commands: vec![
-                    ParameterizedCommand::new(None, None, Command::Note(1)),
-                    ParameterizedCommand::new(None, None, Command::Note(1)),
-                    ParameterizedCommand::new(None, None, Command::Note(2)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(1)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(1)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(2)),
                 ],
             },
             0,
@@ -81,10 +81,10 @@ mod tests {
         tree.add_track(
             &Track {
                 commands: vec![
-                    ParameterizedCommand::new(None, None, Command::Note(1)),
-                    ParameterizedCommand::new(None, None, Command::Note(2)),
-                    ParameterizedCommand::new(None, None, Command::Note(1)),
-                    ParameterizedCommand::new(None, None, Command::Note(2)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(1)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(2)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(1)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(2)),
                 ],
             },
             0,
@@ -105,9 +105,9 @@ mod tests {
         tree.add_track(
             &Track {
                 commands: vec![
-                    ParameterizedCommand::new(None, None, Command::Note(1)),
-                    ParameterizedCommand::new(None, None, Command::CallLoop(0, 0)),
-                    ParameterizedCommand::new(None, None, Command::Note(2)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(1)),
+                    ParameterizedCommand::new(None, None, None, Command::CallLoop(0, 0)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(2)),
                 ],
             },
             0,
@@ -123,9 +123,9 @@ mod tests {
         tree.add_track(
             &Track {
                 commands: vec![
-                    ParameterizedCommand::new(None, None, Command::Note(1)),
-                    ParameterizedCommand::new(None, None, Command::Note(2)),
-                    ParameterizedCommand::new(None, None, Command::Note(3)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(1)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(2)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(3)),
                 ],
             },
             0,
@@ -139,15 +139,15 @@ mod tests {
         tree.add_track(
             &Track {
                 commands: vec![
-                    ParameterizedCommand::new(None, None, Command::Note(1)),
-                    ParameterizedCommand::new(None, None, Command::Note(2)),
-                    ParameterizedCommand::new(None, None, Command::Note(3)),
-                    ParameterizedCommand::new(None, None, Command::Note(4)),
-                    ParameterizedCommand::new(None, None, Command::Note(5)),
-                    ParameterizedCommand::new(None, None, Command::Note(1)),
-                    ParameterizedCommand::new(None, None, Command::Note(2)),
-                    ParameterizedCommand::new(None, None, Command::Note(3)),
-                    ParameterizedCommand::new(None, None, Command::Note(4)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(1)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(2)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(3)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(4)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(5)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(1)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(2)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(3)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(4)),
                 ],
             },
             0,
@@ -185,29 +185,29 @@ mod tests {
         tree.add_track(
             &Track {
                 commands: vec![
-                    ParameterizedCommand::new(None, None, Command::Note(1)),
-                    ParameterizedCommand::new(None, None, Command::Note(2)),
-                    ParameterizedCommand::new(None, None, Command::Note(3)),
-                    ParameterizedCommand::new(None, None, Command::Note(4)),
-                    ParameterizedCommand::new(None, None, Command::Note(5)),
-                    ParameterizedCommand::new(None, None, Command::Note(6)),
-                    ParameterizedCommand::new(None, None, Command::Note(1)),
-                    ParameterizedCommand::new(None, None, Command::Note(2)),
-                    ParameterizedCommand::new(None, None, Command::Note(3)),
-                    ParameterizedCommand::new(None, None, Command::Note(4)),
-                    ParameterizedCommand::new(None, None, Command::Note(5)),
-                    ParameterizedCommand::new(None, None, Command::Note(1)),
-                    ParameterizedCommand::new(None, None, Command::Note(2)),
-                    ParameterizedCommand::new(None, None, Command::Note(3)),
-                    ParameterizedCommand::new(None, None, Command::Note(4)),
-                    ParameterizedCommand::new(None, None, Command::Note(1)),
-                    ParameterizedCommand::new(None, None, Command::Note(2)),
-                    ParameterizedCommand::new(None, None, Command::Note(3)),
-                    ParameterizedCommand::new(None, None, Command::Note(4)),
-                    ParameterizedCommand::new(None, None, Command::Note(1)),
-                    ParameterizedCommand::new(None, None, Command::Note(2)),
-                    ParameterizedCommand::new(None, None, Command::Note(3)),
-                    ParameterizedCommand::new(None, None, Command::Note(4)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(1)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(2)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(3)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(4)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(5)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(6)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(1)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(2)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(3)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(4)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(5)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(1)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(2)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(3)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(4)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(1)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(2)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(3)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(4)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(1)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(2)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(3)),
+                    ParameterizedCommand::new(None, None, None, Command::Note(4)),
                 ],
             },
             0,

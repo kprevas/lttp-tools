@@ -192,6 +192,7 @@ impl Command {
 pub struct ParameterizedCommand {
     duration: Option<u8>,
     velocity: Option<u8>,
+    sustain: Option<u8>,
     command: Command,
 }
 
@@ -199,11 +200,13 @@ impl ParameterizedCommand {
     pub fn new(
         duration: Option<u8>,
         velocity: Option<u8>,
+        sustain: Option<u8>,
         command: Command,
     ) -> ParameterizedCommand {
         ParameterizedCommand {
             duration,
             velocity,
+            sustain,
             command,
         }
     }
@@ -212,40 +215,51 @@ impl ParameterizedCommand {
         &self,
         out: &mut Cursor<Vec<u8>>,
         prev_duration: u8,
-        prev_velocity: Option<u8>,
+        prev_velocity_sustain: Option<u8>,
         call_loops: &mut Vec<CallLoopRef>,
     ) -> Result<(u8, Option<u8>), Error> {
         let mut duration_out = prev_duration;
-        let mut velocity_out = prev_velocity;
-        match self.duration {
-            Some(duration) => {
-                if duration != prev_duration {
-                    if duration > 0 {
-                        out.write_u8(duration)?;
-                    }
-                    match self.velocity {
-                        Some(velocity) => {
-                            if prev_velocity.is_none() || prev_velocity.unwrap() != velocity {
-                                if velocity > 0 {
-                                    out.write_u8(velocity)?;
-                                }
-                                velocity_out = None;
-                            }
-                        }
-                        _ => {
-                            if prev_velocity.is_none() {
-                                out.write_u8(0x7d)?;
-                                velocity_out = Some(0x7d);
-                            }
-                        }
-                    }
-                    duration_out = duration;
-                }
+        let mut velocity_sustain_out = prev_velocity_sustain;
+        let mut duration_to_write = None;
+        if let Some(duration) = self.duration {
+            if duration != prev_duration && duration > 0 {
+                duration_out = duration;
+                duration_to_write = Some(duration);
             }
-            _ => {}
+        }
+        let mut velocity_sustain = None;
+        if let Some(velocity) = self.velocity {
+            if velocity > 0 {
+                velocity_sustain = Some(velocity);
+            }
+        }
+        if let Some(sustain) = self.sustain {
+            if sustain > 0 {
+                velocity_sustain = Some(velocity_sustain.unwrap_or(0xFu8) | (sustain << 4));
+            }
+        }
+        let mut velocity_sustain_to_write = None;
+        if let Some(velocity_sustain) = velocity_sustain {
+            if prev_velocity_sustain.is_none() || prev_velocity_sustain.unwrap() != velocity_sustain {
+                velocity_sustain_out = Some(velocity_sustain);
+                velocity_sustain_to_write = Some(velocity_sustain);
+            }
+        } else if prev_velocity_sustain.is_none() {
+            if let Command::Note( .. ) = self.command {
+                velocity_sustain_out = Some(0x7d);
+                velocity_sustain_to_write = Some(0x7d);
+            }
+        }
+        if let Some(duration) = duration_to_write {
+            out.write_u8(duration)?;
+        } else if velocity_sustain_to_write.is_some() {
+            out.write_u8(prev_duration)?;
+        }
+        if let Some(velocity_sustain) = velocity_sustain_to_write {
+            out.write_u8(velocity_sustain)?;
         }
         self.command.write(out, call_loops)?;
-        Ok((duration_out, velocity_out))
+        Ok((duration_out, velocity_sustain_out))
     }
 
     pub fn call_loop_eligible(&self) -> bool {

@@ -133,6 +133,7 @@ impl Song {
                 new_track.commands.push(ParameterizedCommand::new(
                     Some(0),
                     Some(0),
+                    Some(0),
                     Command::CallLoop(tracks.len(), location.repeat_count),
                 ));
                 last_index =

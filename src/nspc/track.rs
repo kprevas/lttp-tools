@@ -51,11 +51,17 @@ impl Track {
         if abs_time > last_note_end {
             let duration = Track::get_duration(abs_time - last_note_end, ticks_per_beat, false);
             for _ in 0..duration.overflow_count {
-                commands.push(ParameterizedCommand::new(Some(0x7f), None, Command::Rest));
+                commands.push(ParameterizedCommand::new(
+                    Some(0x7f),
+                    None,
+                    None,
+                    Command::Rest,
+                ));
             }
             if duration.length > 0 {
                 commands.push(ParameterizedCommand::new(
                     Some(duration.length),
+                    None,
                     None,
                     Command::Rest,
                 ));
@@ -97,6 +103,7 @@ impl Track {
                         commands.push(ParameterizedCommand::new(
                             None,
                             None,
+                            None,
                             Command::Tempo((bpm as f32 * tempo_factor) as u8),
                         ))
                     }
@@ -118,6 +125,7 @@ impl Track {
                                         commands.push(ParameterizedCommand::new(
                                             None,
                                             None,
+                                            None,
                                             Command::SetInstrument(instr),
                                         ));
                                         last_ch11_instr = instr;
@@ -130,6 +138,7 @@ impl Track {
                                         duration.length
                                     }),
                                     None,
+                                    None,
                                     Command::Note(note + 0x68),
                                 ));
                                 for i in 0..duration.overflow_count {
@@ -139,6 +148,7 @@ impl Track {
                                         } else {
                                             duration.length
                                         }),
+                                        None,
                                         None,
                                         Command::Tie,
                                     ));
@@ -169,6 +179,7 @@ impl Track {
                                     commands.push(ParameterizedCommand::new(
                                         None,
                                         None,
+                                        None,
                                         Command::ChannelVolume(data * 2),
                                     ));
                                 }
@@ -184,6 +195,7 @@ impl Track {
                                 ticks_per_beat,
                             );
                             commands.push(ParameterizedCommand::new(
+                                None,
                                 None,
                                 None,
                                 Command::SetInstrument(INSTRUMENT_MAP[program as usize]),
