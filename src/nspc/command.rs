@@ -4,6 +4,74 @@ use std::io::Cursor;
 
 use super::CallLoopRef;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sustain_not_note() {
+        let mut first = ParameterizedCommand::new(Some(1), None, None, Command::Rest);
+        let second = ParameterizedCommand::new(Some(1), None, None, Command::Rest);
+        assert!(!first.set_sustain(&second));
+        assert!(first.sustain.is_none());
+        assert_eq!(1, first.duration.unwrap());
+    }
+
+    #[test]
+    fn test_sustain_not_followed_by_rest() {
+        let mut first = ParameterizedCommand::new(Some(1), None, None, Command::Note(0));
+        let second = ParameterizedCommand::new(Some(1), None, None, Command::Tie);
+        assert!(!first.set_sustain(&second));
+        assert!(first.sustain.is_none());
+        assert_eq!(1, first.duration.unwrap());
+    }
+
+    #[test]
+    fn test_sustain_half() {
+        let mut first = ParameterizedCommand::new(Some(1), None, None, Command::Note(0));
+        let second = ParameterizedCommand::new(Some(1), None, None, Command::Rest);
+        assert!(first.set_sustain(&second));
+        assert_eq!(4, first.sustain.unwrap());
+        assert_eq!(2, first.duration.unwrap());
+    }
+
+    #[test]
+    fn test_sustain_eighth() {
+        let mut first = ParameterizedCommand::new(Some(1), None, None, Command::Note(0));
+        let second = ParameterizedCommand::new(Some(7), None, None, Command::Rest);
+        assert!(first.set_sustain(&second));
+        assert_eq!(1, first.sustain.unwrap());
+        assert_eq!(8, first.duration.unwrap());
+    }
+
+    #[test]
+    fn test_sustain_five_eighths() {
+        let mut first = ParameterizedCommand::new(Some(5), None, None, Command::Note(0));
+        let second = ParameterizedCommand::new(Some(3), None, None, Command::Rest);
+        assert!(first.set_sustain(&second));
+        assert_eq!(5, first.sustain.unwrap());
+        assert_eq!(8, first.duration.unwrap());
+    }
+
+    #[test]
+    fn test_sustain_too_short() {
+        let mut first = ParameterizedCommand::new(Some(1), None, None, Command::Note(0));
+        let second = ParameterizedCommand::new(Some(12), None, None, Command::Rest);
+        assert!(!first.set_sustain(&second));
+        assert!(first.sustain.is_none());
+        assert_eq!(1, first.duration.unwrap());
+    }
+
+    #[test]
+    fn test_sustain_too_long() {
+        let mut first = ParameterizedCommand::new(Some(12), None, None, Command::Note(0));
+        let second = ParameterizedCommand::new(Some(1), None, None, Command::Rest);
+        assert!(!first.set_sustain(&second));
+        assert!(first.sustain.is_none());
+        assert_eq!(12, first.duration.unwrap());
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub enum Command {
     Note(u8),
@@ -276,5 +344,21 @@ impl ParameterizedCommand {
             Command::CallLoop(_, _) => false,
             _ => true,
         }
+    }
+
+    pub fn set_sustain(&mut self, next_command: &ParameterizedCommand) -> bool {
+        if let Command::Note(..) = self.command {
+            if let Command::Rest = next_command.command {
+                let note_duration = self.duration.unwrap() as u16;
+                let total_duration = note_duration + (next_command.duration.unwrap() as u16);
+                if (note_duration * 8) % total_duration == 0 {
+                    let sustain = ((note_duration * 8) / total_duration) as u8;
+                    self.sustain = Some(sustain.min(7));
+                    self.duration = Some(total_duration as u8);
+                    return true;
+                }
+            }
+        }
+        false
     }
 }

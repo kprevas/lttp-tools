@@ -139,7 +139,7 @@ impl Track {
                                         duration.length
                                     }),
                                     Some(note_velocity / 8),
-                                    None,
+                                    Some(7),
                                     Command::Note(note + 0x68),
                                 ));
                                 for i in 0..duration.overflow_count {
@@ -218,7 +218,21 @@ impl Track {
                 _ => {}
             }
         }
-        Ok(Track { commands })
+        let mut commands_with_sustain = Vec::new();
+        if !commands.is_empty() {
+            let mut skip_next_rest = false;
+            for i in 0..commands.len() - 1 {
+                if skip_next_rest {
+                    skip_next_rest = false;
+                    continue;
+                }
+                let next = &commands[i + 1].clone();
+                let command = &mut commands[i];
+                skip_next_rest = command.set_sustain(next);
+                commands_with_sustain.push(command.clone());
+            }
+        }
+        Ok(Track { commands: commands_with_sustain })
     }
 
     pub fn write(
