@@ -80,6 +80,7 @@ impl Track {
     ) -> Result<Track, Error> {
         let mut commands = Vec::new();
         let mut note_start: Option<u32> = None;
+        let mut note_velocity = 0;
         let mut last_note_end = 0u32;
         let mut last_ch11_instr = 0;
         for &(ref message, abs_time) in events {
@@ -137,7 +138,7 @@ impl Track {
                                     } else {
                                         duration.length
                                     }),
-                                    None,
+                                    Some(note_velocity / 8),
                                     None,
                                     Command::Note(note + 0x68),
                                 ));
@@ -157,7 +158,7 @@ impl Track {
                                 note_start = None;
                             }
                         }
-                        MidiEvent::NoteOn { .. } => {
+                        MidiEvent::NoteOn { velocity, .. } => {
                             last_note_end = Track::insert_rest(
                                 &mut commands,
                                 last_note_end,
@@ -167,7 +168,8 @@ impl Track {
                             if note_start.is_some() {
                                 bail!("More than one voice needed on voice {}: notes start at {} and {}", voice, note_start.unwrap(), abs_time);
                             }
-                            note_start = Some(last_note_end)
+                            note_start = Some(last_note_end);
+                            note_velocity = velocity;
                         }
                         MidiEvent::PolyphonicKeyPressure { .. } => {
                             // TODO

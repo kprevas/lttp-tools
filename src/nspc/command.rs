@@ -228,14 +228,23 @@ impl ParameterizedCommand {
             }
         }
         let mut velocity_sustain = None;
-        if let Some(velocity) = self.velocity {
-            if velocity > 0 {
-                velocity_sustain = Some(velocity);
+        if self.velocity.is_some() || self.sustain.is_some() {
+            let mut velocity_sustain_value = prev_velocity_sustain.unwrap_or(0x7d);
+            let mut nonzero = false;
+            if let Some(velocity) = self.velocity {
+                if velocity > 0 {
+                    velocity_sustain_value = (velocity_sustain_value & 0x70) | velocity;
+                    nonzero = true;
+                }
             }
-        }
-        if let Some(sustain) = self.sustain {
-            if sustain > 0 {
-                velocity_sustain = Some(velocity_sustain.unwrap_or(0xFu8) | (sustain << 4));
+            if let Some(sustain) = self.sustain {
+                if sustain > 0 {
+                    velocity_sustain_value = (velocity_sustain_value & 0x0F) | (sustain << 4);
+                    nonzero = true;
+                }
+            }
+            if nonzero {
+                velocity_sustain = Some(velocity_sustain_value);
             }
         }
         let mut velocity_sustain_to_write = None;
