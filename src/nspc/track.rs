@@ -11,6 +11,7 @@ pub struct Track {
     pub commands: Vec<ParameterizedCommand>,
 }
 
+#[derive(Debug)]
 struct Duration {
     length: u8,
     quantized_ticks: u32,
@@ -28,10 +29,20 @@ impl Track {
         };
         let quantized_ticks = quantized_length * (ticks_per_beat as u32) / 24;
         if quantized_length > 0x7f {
-            Duration {
-                length: (quantized_length % 0x7f) as u8,
-                quantized_ticks,
-                overflow_count: (quantized_length / 0x7f) as u8,
+            let overflow_amount = quantized_length % 0x7f;
+            let overflow_count = quantized_length / 0x7f;
+            if overflow_amount == 0 {
+                Duration {
+                    length: 0x7f,
+                    quantized_ticks,
+                    overflow_count: (overflow_count - 1) as u8,
+                }
+            } else {
+                Duration {
+                    length: overflow_amount as u8,
+                    quantized_ticks,
+                    overflow_count: overflow_count as u8,
+                }
             }
         } else {
             Duration {
