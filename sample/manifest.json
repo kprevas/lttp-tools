@@ -7,7 +7,7 @@
       "input": "at-peace.mid"
     },
     "Beginning": {
-      "input": "Bassoons-Harpsichord.mid"
+      "input": "polar-penguin.mid"
     },
     "Rabbit": {
       "input": "Championship-Fanfare.mid"
@@ -22,13 +22,13 @@
       "input": "Ghouls-and-Ghosts.mid"
     },
     "Warp": {
-      "input": "Dreamy-Summer.mid"
+      "input": "short.mid"
     },
     "Dark World": {
       "input": "ice-blocks.mid"
     },
     "Master Sword": {
-      "input": "Gentle-and-cute.mid"
+      "input": "short.mid"
     },
     "File Select": {
       "input": "gospel-tune.mid"
@@ -43,24 +43,24 @@
       "input": "Puzzle-Blocks.mid"
     },
     "Fanfare": {
-      "input": "polar-penguin.mid"
+      "input": "short.mid"
     }
   },
   "indoor": {
     "Castle": {
-      "input": "jazzy-swing-song.mid"
+      "input": "Minstrel.mid"
     },
     "Palace": {
       "input": "lazy-waves.mid"
     },
     "Cave": {
-      "input": "melancoly-lento.mid"
+      "input": "spiritual.mid"
     },
     "Clear": {
-      "input": "Minstrel.mid"
+      "input": "short.mid"
     },
     "Church": {
-      "input": "old-time-song.mid"
+      "input": "polar-penguin.mid"
     },
     "Boss": {
       "input": "Oddity-for-string-trio.mid"
@@ -72,7 +72,7 @@
       "input": "Way-of-the-Dragon.mid"
     },
     "Secret Way": {
-      "input": "Restless-and-uneasy.mid"
+      "input": "short.mid"
     },
     "Rescue": {
       "input": "football-song.mid"
@@ -87,7 +87,7 @@
       "input": "short-hymn.mid"
     },
     "Kill Agahnim": {
-      "input": "spiritual.mid"
+      "input": "short.mid"
     },
     "Ganon Room": {
       "input": "not-mozart.mid"
