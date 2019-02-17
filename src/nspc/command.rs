@@ -70,6 +70,24 @@ mod tests {
         assert!(first.sustain.is_none());
         assert_eq!(12, first.duration.unwrap());
     }
+
+    #[test]
+    fn test_sustain_doesnt_divide_evenly() {
+        let mut first = ParameterizedCommand::new(Some(5), None, None, Command::Note(0));
+        let second = ParameterizedCommand::new(Some(6), None, None, Command::Rest);
+        assert!(!first.set_sustain(&second));
+        assert!(first.sustain.is_none());
+        assert_eq!(5, first.duration.unwrap());
+    }
+
+    #[test]
+    fn test_sustain_very_short_rest() {
+        let mut first = ParameterizedCommand::new(Some(24), None, None, Command::Note(0));
+        let second = ParameterizedCommand::new(Some(1), None, None, Command::Rest);
+        assert!(first.set_sustain(&second));
+        assert_eq!(7, first.sustain.unwrap());
+        assert_eq!(25, first.duration.unwrap());
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]
@@ -350,8 +368,9 @@ impl ParameterizedCommand {
         if let Command::Note(..) = self.command {
             if let Command::Rest = next_command.command {
                 let note_duration = self.duration.unwrap() as u16;
-                let total_duration = note_duration + (next_command.duration.unwrap() as u16);
-                if (note_duration * 8) % total_duration == 0 {
+                let rest_duration = next_command.duration.unwrap() as u16;
+                let total_duration = note_duration + rest_duration;
+                if (note_duration * 8) % total_duration == 0 || note_duration > rest_duration * 16 {
                     let sustain = ((note_duration * 8) / total_duration) as u8;
                     self.sustain = Some(sustain.min(7));
                     self.duration = Some(total_duration as u8);
