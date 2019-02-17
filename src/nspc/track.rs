@@ -242,6 +242,9 @@ impl Track {
                 skip_next_rest = command.set_sustain(next);
                 commands_with_sustain.push(command.clone());
             }
+            if !skip_next_rest {
+                commands_with_sustain.push(commands.last().unwrap().clone());
+            }
         }
         Ok(Track { commands: commands_with_sustain })
     }
