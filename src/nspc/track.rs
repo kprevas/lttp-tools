@@ -105,12 +105,13 @@ impl Track {
                         let usec_per_beat = (data[0] as u32) * 0x10000
                             + (data[1] as u32) * 0x100
                             + (data[2] as u32);
-                        let bpm = usec_per_beat / 6000;
+                        let bpm = (6e7 / (usec_per_beat as f32)).ceil();
+                        println!("{} usec per beat {} bpm {} {:?}", abs_time, usec_per_beat, bpm, event);
                         commands.push(ParameterizedCommand::new(
                             None,
                             None,
                             None,
-                            Command::Tempo((bpm as f32 * tempo_factor) as u8),
+                            Command::Tempo((bpm * tempo_factor) as u8),
                         ))
                     }
                 }

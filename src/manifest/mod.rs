@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-pub const DEFAULT_TEMPO_ADJUST: f32 = 0.3;
+pub const DEFAULT_TEMPO_ADJUST: f32 = 0.2;
 
 const OVERWORLD_SONGS: [&str; 15] = [
     "Title",
