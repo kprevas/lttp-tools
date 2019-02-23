@@ -37,7 +37,7 @@ fn priority(message: &Message) -> u8 {
             MidiEvent::PitchBendChange { .. } => 1,
             MidiEvent::Unknown { .. } => 1,
         },
-        _ => 0,
+        _ => 1,
     }
 }
 

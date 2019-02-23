@@ -102,12 +102,6 @@ impl Track {
                     ..
                 } => {
                     if let MetaEvent::SetTempo = *event {
-                        last_note_end = Track::insert_rest(
-                            &mut commands,
-                            last_note_end,
-                            abs_time,
-                            ticks_per_beat,
-                        );
                         let usec_per_beat = (data[0] as u32) * 0x10000
                             + (data[1] as u32) * 0x100
                             + (data[2] as u32);
