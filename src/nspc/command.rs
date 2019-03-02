@@ -308,9 +308,11 @@ impl ParameterizedCommand {
         let mut velocity_sustain_out = prev_velocity_sustain;
         let mut duration_to_write = None;
         if let Some(duration) = self.duration {
-            if duration != prev_duration && duration > 0 {
+            if duration != prev_duration {
                 duration_out = duration;
-                duration_to_write = Some(duration);
+                if duration > 0 {
+                    duration_to_write = Some(duration);
+                }
             }
         }
         let mut velocity_sustain = None;
