@@ -140,8 +140,7 @@ impl Track {
                                         last_ch11_instr = instr;
                                     }
                                 }
-                                let push_as_tie = portamento
-                                    && commands.last().map_or(false, |cmd| cmd.is_slide());
+                                let push_as_tie = commands.last().map_or(false, |cmd| cmd.is_slide());
                                 commands.push(ParameterizedCommand::new(
                                     Some(if duration.overflow_count > 0 {
                                         0x7f
