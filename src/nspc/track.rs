@@ -94,6 +94,8 @@ impl Track {
         let mut note_velocity = 0;
         let mut last_note_end = 0u32;
         let mut last_ch11_instr = 0;
+        let mut portamento = false;
+        let mut port_time = 0u16;
         for &(ref message, abs_time) in events {
             match *message {
                 Message::MetaEvent {
@@ -106,7 +108,6 @@ impl Track {
                             + (data[1] as u32) * 0x100
                             + (data[2] as u32);
                         let bpm = (6e7 / (usec_per_beat as f32)).ceil();
-                        println!("{} usec per beat {} bpm {} {:?}", abs_time, usec_per_beat, bpm, event);
                         commands.push(ParameterizedCommand::new(
                             None,
                             None,
@@ -138,6 +139,8 @@ impl Track {
                                         last_ch11_instr = instr;
                                     }
                                 }
+                                let push_as_tie = portamento
+                                    && commands.last().map_or(false, |cmd| cmd.is_slide());
                                 commands.push(ParameterizedCommand::new(
                                     Some(if duration.overflow_count > 0 {
                                         0x7f
@@ -146,7 +149,11 @@ impl Track {
                                     }),
                                     Some(note_velocity / 8),
                                     Some(7),
-                                    Command::Note(note + 0x68),
+                                    if push_as_tie {
+                                        Command::Tie
+                                    } else {
+                                        Command::Note(note + 0x68)
+                                    },
                                 ));
                                 for i in 0..duration.overflow_count {
                                     commands.push(ParameterizedCommand::new(
@@ -164,13 +171,31 @@ impl Track {
                                 note_start = None;
                             }
                         }
-                        MidiEvent::NoteOn { velocity, .. } => {
+                        MidiEvent::NoteOn { velocity, note, .. } => {
                             last_note_end = Track::insert_rest(
                                 &mut commands,
                                 last_note_end,
                                 abs_time,
                                 ticks_per_beat,
                             );
+                            if portamento && !commands.is_empty() {
+                                let pitch_slide: Option<ParameterizedCommand>;
+                                {
+                                    let last_command = commands.last();
+                                    pitch_slide = last_command.and_then(|cmd| {
+                                        cmd.create_pitch_slide(
+                                            Track::get_duration(
+                                                port_time as u32,
+                                                ticks_per_beat,
+                                                true,
+                                            )
+                                            .length,
+                                            note + 0x68,
+                                        )
+                                    });
+                                }
+                                pitch_slide.map(|slide| commands.push(slide));
+                            }
                             if note_start.is_some() {
                                 bail!("More than one voice needed on voice {}: notes start at {} and {}", voice, note_start.unwrap(), abs_time);
                             }
@@ -182,6 +207,10 @@ impl Track {
                         }
                         MidiEvent::ControlChange { control, data, .. } => {
                             match control {
+                                5 => {
+                                    // portamento time high byte
+                                    port_time = ((data as u16) << 8) | (port_time & 0xFF);
+                                }
                                 7 => {
                                     // channel volume
                                     commands.push(ParameterizedCommand::new(
@@ -190,6 +219,14 @@ impl Track {
                                         None,
                                         Command::ChannelVolume(data * 2),
                                     ));
+                                }
+                                37 => {
+                                    // portamento time low byte
+                                    port_time = (port_time & 0xFF00) | (data as u16);
+                                }
+                                65 => {
+                                    // portamento on/off
+                                    portamento = data >= 64;
                                 }
                                 _ => {}
                             }
@@ -241,7 +278,9 @@ impl Track {
                 commands_with_sustain.push(commands.last().unwrap().clone());
             }
         }
-        Ok(Track { commands: commands_with_sustain })
+        Ok(Track {
+            commands: commands_with_sustain,
+        })
     }
 
     pub fn write(

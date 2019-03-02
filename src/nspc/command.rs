@@ -335,12 +335,13 @@ impl ParameterizedCommand {
         }
         let mut velocity_sustain_to_write = None;
         if let Some(velocity_sustain) = velocity_sustain {
-            if prev_velocity_sustain.is_none() || prev_velocity_sustain.unwrap() != velocity_sustain {
+            if prev_velocity_sustain.is_none() || prev_velocity_sustain.unwrap() != velocity_sustain
+            {
                 velocity_sustain_out = Some(velocity_sustain);
                 velocity_sustain_to_write = Some(velocity_sustain);
             }
         } else if prev_velocity_sustain.is_none() {
-            if let Command::Note( .. ) = self.command {
+            if let Command::Note(..) = self.command {
                 velocity_sustain_out = Some(0x7d);
                 velocity_sustain_to_write = Some(0x7d);
             }
@@ -379,5 +380,28 @@ impl ParameterizedCommand {
             }
         }
         false
+    }
+
+    pub fn create_pitch_slide(
+        &self,
+        slide_time: u8,
+        target_note: u8,
+    ) -> Option<ParameterizedCommand> {
+        match self.command {
+            Command::Rest => None,
+            _ => self.duration.map(|duration| ParameterizedCommand {
+                duration: None,
+                velocity: None,
+                sustain: None,
+                command: Command::PitchSlide(duration - slide_time.min(duration), slide_time, target_note),
+            })
+        }
+    }
+
+    pub fn is_slide(&self) -> bool {
+        match self.command {
+            Command::PitchSlide(..) => true,
+            _ => false,
+        }
     }
 }
