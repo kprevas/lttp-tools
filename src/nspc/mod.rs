@@ -55,6 +55,7 @@ impl Song {
                 match Track::new(
                     midi.events_for_voice(voice),
                     midi.ticks_per_beat,
+                    midi.max_time,
                     tempo_factor,
                     voice,
                 ) {
@@ -168,7 +169,7 @@ impl Song {
     pub fn empty() -> Result<Song, Error> {
         Ok(Song {
             parts: vec![Part { tracks: vec![0] }],
-            tracks: vec![Track::new(&vec![], 24, 0.3, 0)?],
+            tracks: vec![Track::new(&vec![], 24, 0, 0.3, 0)?],
         })
     }
 

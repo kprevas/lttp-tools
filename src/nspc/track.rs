@@ -86,6 +86,7 @@ impl Track {
     pub fn new(
         events: &Vec<(Message, u32)>,
         ticks_per_beat: u16,
+        max_time: u32,
         tempo_factor: f32,
         voice: usize,
     ) -> Result<Track, Error> {
@@ -189,7 +190,7 @@ impl Track {
                                                 ticks_per_beat,
                                                 true,
                                             )
-                                            .length,
+                                                .length,
                                             note + 0x68,
                                         )
                                     });
@@ -260,6 +261,9 @@ impl Track {
                 }
                 _ => {}
             }
+        }
+        if max_time > last_note_end {
+            Track::insert_rest(&mut commands, last_note_end, max_time, ticks_per_beat);
         }
         let mut commands_with_sustain = Vec::new();
         if !commands.is_empty() {

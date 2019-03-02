@@ -98,6 +98,7 @@ pub struct MidiHandler {
     channels: [MidiChannel; 16],
     voices: [MidiVoice; 8],
     pub ticks_per_beat: u16,
+    pub max_time: u32,
 }
 
 impl MidiHandler {
@@ -133,6 +134,7 @@ impl MidiHandler {
                 MidiVoice::new(),
             ],
             ticks_per_beat: 0,
+            max_time: 0,
         }
     }
 
@@ -154,36 +156,41 @@ impl MidiHandler {
             let mut active_voices = 0usize;
             for message in &channel.messages {
                 match *message {
-                    (Message::MidiEvent { ref event, .. }, abs_time) => match *event {
-                        MidiEvent::NoteOff { .. } => {
-                            if abs_time > last_interval_end {
-                                intervals.push(VoiceInterval {
-                                    start: last_interval_end,
-                                    end: abs_time,
-                                    channel: i,
-                                    voices: active_voices,
-                                });
-                            }
-                            active_voices -= 1;
-                            last_interval_end = abs_time;
-                        }
-                        MidiEvent::NoteOn { velocity, .. } => {
-                            if abs_time > last_interval_end {
-                                intervals.push(VoiceInterval {
-                                    start: last_interval_end,
-                                    end: abs_time,
-                                    channel: i,
-                                    voices: active_voices,
-                                });
-                            }
-                            if velocity == 0 {
+                    (Message::MidiEvent { ref event, .. }, abs_time) => {
+                        match *event {
+                            MidiEvent::NoteOff { .. } => {
+                                if abs_time > last_interval_end {
+                                    intervals.push(VoiceInterval {
+                                        start: last_interval_end,
+                                        end: abs_time,
+                                        channel: i,
+                                        voices: active_voices,
+                                    });
+                                }
                                 active_voices -= 1;
-                            } else {
-                                active_voices += 1;
+                                last_interval_end = abs_time;
                             }
-                            last_interval_end = abs_time;
+                            MidiEvent::NoteOn { velocity, .. } => {
+                                if abs_time > last_interval_end {
+                                    intervals.push(VoiceInterval {
+                                        start: last_interval_end,
+                                        end: abs_time,
+                                        channel: i,
+                                        voices: active_voices,
+                                    });
+                                }
+                                if velocity == 0 {
+                                    active_voices -= 1;
+                                } else {
+                                    active_voices += 1;
+                                }
+                                last_interval_end = abs_time;
+                            }
+                            _ => {}
                         }
-                        _ => {}
+                        if abs_time > self.max_time {
+                            self.max_time = abs_time;
+                        }
                     },
                     _ => {}
                 }
