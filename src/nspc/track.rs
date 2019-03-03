@@ -125,7 +125,7 @@ impl Track {
                                     Track::get_duration(abs_time - start, ticks_per_beat, true);
                                 if ch == 10 {
                                     let mut instr;
-                                    if note == 0x3e || note == 0x40 {
+                                    if note == 38 || note == 40 {
                                         instr = SNARE;
                                     } else {
                                         instr = CYMBAL;
