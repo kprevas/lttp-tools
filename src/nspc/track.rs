@@ -261,11 +261,11 @@ impl Track {
                 _ => {}
             }
         }
-        if max_time > last_note_end {
-            Track::insert_rest(&mut commands, last_note_end, max_time, ticks_per_beat);
-        }
         let mut commands_with_sustain = Vec::new();
         if !commands.is_empty() {
+            if max_time > last_note_end {
+                Track::insert_rest(&mut commands, last_note_end, max_time, ticks_per_beat);
+            }
             let mut skip_next_rest = false;
             for i in 0..commands.len() - 1 {
                 if skip_next_rest {
