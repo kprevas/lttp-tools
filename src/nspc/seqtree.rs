@@ -337,9 +337,7 @@ impl SeqTree {
         seq_len: usize,
     ) {
         if seq_len > 0 {
-            if commands.is_empty() || !commands[0].can_be_last_in_call_loop() {
-                add_location(&mut self.locations, track_idx, seq_start, seq_len);
-            }
+            add_location(&mut self.locations, track_idx, seq_start, seq_len);
         }
         if !commands.is_empty() {
             let mut found_edge = false;
