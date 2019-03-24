@@ -362,7 +362,8 @@ impl ParameterizedCommand {
 
     pub fn call_loop_eligible(&self) -> bool {
         match self.command {
-            Command::CallLoop(_, _) => false,
+            Command::CallLoop(..) => false,
+            Command::PitchSlide(..) => false,
             _ => true,
         }
     }

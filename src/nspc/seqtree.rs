@@ -295,6 +295,34 @@ mod tests {
         );
         assert_eq!(4, tree.best_sequence().unwrap().commands.len());
     }
+
+    #[test]
+    fn test_seq_doesnt_break_slides_at_slide_boundary() {
+        let mut tree = SeqTree::new();
+        tree.add_track(
+            &Track {
+                commands: vec![
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(1)),
+                    ParameterizedCommand::new(None, None, None, Command::PitchSlide(1, 2, 3)),
+                    ParameterizedCommand::new(Some(2), None, None, Command::Tie),
+                    ParameterizedCommand::new(None, None, None, Command::PitchSlide(1, 3, 3)),
+                    ParameterizedCommand::new(Some(2), None, None, Command::Tie),
+                    ParameterizedCommand::new(None, None, None, Command::PitchSlide(1, 4, 3)),
+                    ParameterizedCommand::new(Some(2), None, None, Command::Tie),
+                    ParameterizedCommand::new(None, None, None, Command::PitchSlide(1, 3, 3)),
+                    ParameterizedCommand::new(Some(2), None, None, Command::Tie),
+                    ParameterizedCommand::new(None, None, None, Command::PitchSlide(1, 2, 3)),
+                    ParameterizedCommand::new(Some(2), None, None, Command::Tie),
+                    ParameterizedCommand::new(None, None, None, Command::PitchSlide(1, 3, 3)),
+                    ParameterizedCommand::new(Some(2), None, None, Command::Tie),
+                    ParameterizedCommand::new(None, None, None, Command::PitchSlide(1, 4, 3)),
+                    ParameterizedCommand::new(Some(2), None, None, Command::Tie),
+                ],
+            },
+            0,
+        );
+        assert!(tree.best_sequence().is_none());
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
