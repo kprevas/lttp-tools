@@ -406,4 +406,11 @@ impl ParameterizedCommand {
             _ => false,
         }
     }
+
+    pub fn can_be_last_in_call_loop(&self) -> bool {
+        match self.command {
+            Command::PitchSlide(..) => false,
+            _ => true,
+        }
+    }
 }

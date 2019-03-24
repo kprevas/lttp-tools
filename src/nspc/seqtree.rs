@@ -243,6 +243,31 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn test_seq_doesnt_break_slides() {
+        let mut tree = SeqTree::new();
+        tree.add_track(
+            &Track {
+                commands: vec![
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(1)),
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(2)),
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(3)),
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(4)),
+                    ParameterizedCommand::new(None, None, None, Command::PitchSlide(1, 2, 3)),
+                    ParameterizedCommand::new(Some(2), None, None, Command::Tie),
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(1)),
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(2)),
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(3)),
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(4)),
+                    ParameterizedCommand::new(None, None, None, Command::PitchSlide(1, 2, 3)),
+                    ParameterizedCommand::new(Some(3), None, None, Command::Tie),
+                ],
+            },
+            0,
+        );
+        assert_eq!(4, tree.best_sequence().unwrap().commands.len());
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -312,7 +337,9 @@ impl SeqTree {
         seq_len: usize,
     ) {
         if seq_len > 0 {
-            add_location(&mut self.locations, track_idx, seq_start, seq_len);
+            if commands.is_empty() || !commands[0].can_be_last_in_call_loop() {
+                add_location(&mut self.locations, track_idx, seq_start, seq_len);
+            }
         }
         if !commands.is_empty() {
             let mut found_edge = false;
@@ -322,8 +349,7 @@ impl SeqTree {
                     .iter_mut()
                     .find(|edge| edge.commands[0] == commands[0]);
                 if let Some(edge) = edge {
-                    found_edge = true;
-                    let shared_prefix = commands
+                    let mut shared_prefix = commands
                         .iter()
                         .enumerate()
                         .take_while(|&(idx, cmd)| {
@@ -331,15 +357,58 @@ impl SeqTree {
                         })
                         .map(|(_, e)| e)
                         .collect::<Vec<&ParameterizedCommand>>();
-                    let shared_seq_len = seq_len + shared_prefix.len();
-                    if shared_prefix.len() == edge.commands.len() {
-                        add_location(
-                            &mut edge.target.as_mut().unwrap().locations,
-                            track_idx,
-                            seq_start,
-                            shared_seq_len,
-                        );
-                        if shared_prefix.len() < commands.len() {
+                    while !shared_prefix.is_empty() {
+                        if (shared_prefix.len() < commands.len() || shared_prefix.len() < edge.commands.len())
+                            && !commands[shared_prefix.len() - 1].can_be_last_in_call_loop()
+                        {
+                            let last_idx = shared_prefix.len() - 1;
+                            shared_prefix.remove(last_idx);
+                        } else {
+                            break;
+                        }
+                    }
+                    if !shared_prefix.is_empty() {
+                        found_edge = true;
+                        let shared_seq_len = seq_len + shared_prefix.len();
+                        if shared_prefix.len() == edge.commands.len() {
+                            add_location(
+                                &mut edge.target.as_mut().unwrap().locations,
+                                track_idx,
+                                seq_start,
+                                shared_seq_len,
+                            );
+                            if shared_prefix.len() < commands.len() {
+                                edge.target.as_mut().unwrap().add_commands(
+                                    &commands[shared_prefix.len()..],
+                                    track_idx,
+                                    seq_start,
+                                    shared_seq_len,
+                                );
+                            }
+                        } else {
+                            let mut new_target = SeqTree {
+                                edges: Vec::new(),
+                                locations: Vec::new(),
+                            };
+                            let old_target = edge.target.take();
+                            if let Some(old_target) = old_target {
+                                for loc in &old_target.locations {
+                                    add_location(
+                                        &mut new_target.locations,
+                                        loc.track_idx,
+                                        loc.cmd_idx,
+                                        shared_seq_len,
+                                    );
+                                }
+                                let mut old_suffix = Vec::new();
+                                old_suffix.extend_from_slice(&edge.commands[shared_prefix.len()..]);
+                                new_target.edges.push(Edge {
+                                    commands: old_suffix,
+                                    target: Some(old_target),
+                                });
+                            }
+                            edge.commands = shared_prefix.iter().map(|&cmd| cmd.clone()).collect();
+                            edge.target.replace(new_target);
                             edge.target.as_mut().unwrap().add_commands(
                                 &commands[shared_prefix.len()..],
                                 track_idx,
@@ -347,36 +416,6 @@ impl SeqTree {
                                 shared_seq_len,
                             );
                         }
-                    } else {
-                        let mut new_target = SeqTree {
-                            edges: Vec::new(),
-                            locations: Vec::new(),
-                        };
-                        let old_target = edge.target.take();
-                        if let Some(old_target) = old_target {
-                            for loc in &old_target.locations {
-                                add_location(
-                                    &mut new_target.locations,
-                                    loc.track_idx,
-                                    loc.cmd_idx,
-                                    shared_seq_len,
-                                );
-                            }
-                            let mut old_suffix = Vec::new();
-                            old_suffix.extend_from_slice(&edge.commands[shared_prefix.len()..]);
-                            new_target.edges.push(Edge {
-                                commands: old_suffix,
-                                target: Some(old_target),
-                            });
-                        }
-                        edge.commands = shared_prefix.iter().map(|&cmd| cmd.clone()).collect();
-                        edge.target.replace(new_target);
-                        edge.target.as_mut().unwrap().add_commands(
-                            &commands[shared_prefix.len()..],
-                            track_idx,
-                            seq_start,
-                            shared_seq_len,
-                        );
                     }
                 }
             }
