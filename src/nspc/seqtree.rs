@@ -268,6 +268,33 @@ mod tests {
         );
         assert_eq!(4, tree.best_sequence().unwrap().commands.len());
     }
+
+    #[test]
+    fn test_seq_doesnt_break_slides_at_start() {
+        let mut tree = SeqTree::new();
+        tree.add_track(
+            &Track {
+                commands: vec![
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(1)),
+                    ParameterizedCommand::new(None, None, None, Command::PitchSlide(1, 2, 3)),
+                    ParameterizedCommand::new(Some(2), None, None, Command::Tie),
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(2)),
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(3)),
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(4)),
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(5)),
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(1)),
+                    ParameterizedCommand::new(None, None, None, Command::PitchSlide(1, 3, 3)),
+                    ParameterizedCommand::new(Some(2), None, None, Command::Tie),
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(2)),
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(3)),
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(4)),
+                    ParameterizedCommand::new(Some(1), None, None, Command::Note(5)),
+                ],
+            },
+            0,
+        );
+        assert_eq!(4, tree.best_sequence().unwrap().commands.len());
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -365,7 +392,7 @@ impl SeqTree {
                             break;
                         }
                     }
-                    if !shared_prefix.is_empty() {
+                    if !shared_prefix.is_empty() && shared_prefix[0].can_be_first_in_call_loop() {
                         found_edge = true;
                         let shared_seq_len = seq_len + shared_prefix.len();
                         if shared_prefix.len() == edge.commands.len() {
