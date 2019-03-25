@@ -4,6 +4,9 @@ use ghakuf::reader::*;
 use itertools::*;
 use std::collections::HashMap;
 use std::path::Path;
+use super::nspc::instruments::*;
+
+const SNARE_NOTE: u8 = 68;
 
 #[derive(Debug, Fail)]
 enum MidiError {
@@ -328,14 +331,15 @@ impl MidiHandler {
         let channels = &self.channels;
         let mut last_abs_time: Vec<u32> = Vec::new();
         let mut curr_event_idx: Vec<usize> = Vec::new();
-        let mut last_ctrl_change_per_channel: Vec<Option<&Message>> = Vec::new();
-        let mut last_prog_change_per_channel: Vec<Option<&Message>> = Vec::new();
-        let mut last_pitch_bend_per_channel: Vec<Option<&Message>> = Vec::new();
-        let mut last_ctrl_change_per_voice: Vec<Option<&Message>> = Vec::new();
-        let mut last_prog_change_per_voice: Vec<Option<&Message>> = Vec::new();
-        let mut last_pitch_bend_per_voice: Vec<Option<&Message>> = Vec::new();
+        let mut last_ctrl_change_per_channel: Vec<Option<Message>> = Vec::new();
+        let mut last_prog_change_per_channel: Vec<Option<Message>> = Vec::new();
+        let mut last_pitch_bend_per_channel: Vec<Option<Message>> = Vec::new();
+        let mut last_ctrl_change_per_voice: Vec<Option<Message>> = Vec::new();
+        let mut last_prog_change_per_voice: Vec<Option<Message>> = Vec::new();
+        let mut last_pitch_bend_per_voice: Vec<Option<Message>> = Vec::new();
         let mut last_channel_per_voice: Vec<Option<usize>> = Vec::new();
         let mut active_notes: Vec<HashMap<u8, usize>> = Vec::new();
+        let mut last_percussion_instr = 0;
         for _ in 0..self.channels.len() {
             last_abs_time.push(0);
             curr_event_idx.push(0);
@@ -391,11 +395,22 @@ impl MidiHandler {
                     },
                     abs_time,
                 ) => match *event {
-                    MidiEvent::NoteOff { ch, note, .. } => {
+                    MidiEvent::NoteOff { ch, note, velocity } => {
                         let ch = ch as usize;
                         if active_notes[ch].contains_key(&note) {
                             let voice = active_notes[ch].remove(&note).unwrap();
-                            self.voices[voice].messages.push(next_event.clone());
+                            if ch == 9 {
+                                self.voices[voice].messages.push((Message::MidiEvent {
+                                    delta_time,
+                                    event: MidiEvent::NoteOff {
+                                        ch: ch as u8,
+                                        note: if note == 38 || note == 40 { SNARE_NOTE } else { note },
+                                        velocity,
+                                    }
+                                }, abs_time))
+                            } else {
+                                self.voices[voice].messages.push(next_event.clone());
+                            }
                         }
                     }
                     MidiEvent::NoteOn { ch, note, velocity } => {
@@ -457,15 +472,42 @@ impl MidiHandler {
                             active_notes[ch].insert(note, next_voice);
                             let messages = &mut self.voices[next_voice].messages;
                             if ch != last_channel_per_voice[next_voice].unwrap_or(0xff) {
-                                last_ctrl_change_per_channel[ch]
+                                last_ctrl_change_per_channel.get(ch).unwrap().as_ref()
                                     .map(|event| messages.push((event.clone(), abs_time)));
-                                last_prog_change_per_channel[ch]
+                                last_prog_change_per_channel.get(ch).unwrap().as_ref()
                                     .map(|event| messages.push((event.clone(), abs_time)));
-                                last_pitch_bend_per_channel[ch]
+                                last_pitch_bend_per_channel.get(ch).unwrap().as_ref()
                                     .map(|event| messages.push((event.clone(), abs_time)));
                                 last_channel_per_voice[next_voice] = Some(ch);
                             };
-                            messages.push(next_event.clone());
+                            if ch == 9 {
+                                let instr = if note == 38 || note == 40 { SNARE } else { CYMBAL };
+                                if last_percussion_instr != instr {
+                                    let prog_change = (
+                                        Message::MidiEvent {
+                                            delta_time,
+                                            event: MidiEvent::ProgramChange {
+                                                ch: ch as u8,
+                                                program: instr,
+                                            }
+                                        },
+                                        abs_time
+                                    );
+                                    last_prog_change_per_channel[ch] = Some(prog_change.0.clone());
+                                    messages.push(prog_change);
+                                    last_percussion_instr = instr;
+                                }
+                                messages.push((Message::MidiEvent {
+                                    delta_time,
+                                    event: MidiEvent::NoteOn {
+                                        ch: ch as u8,
+                                        note: if note == 38 || note == 40 { SNARE_NOTE } else { note },
+                                        velocity,
+                                    }
+                                }, abs_time))
+                            } else {
+                                messages.push(next_event.clone());
+                            }
                         }
                     }
                     MidiEvent::PolyphonicKeyPressure { ch, note, .. } => {
@@ -481,7 +523,7 @@ impl MidiHandler {
                         for &voice in active_notes[ch].values() {
                             self.voices[voice].messages.push(next_event.clone());
                             if control == 7 {
-                                last_ctrl_change_per_voice[voice] = Some(&next_event.0);
+                                last_ctrl_change_per_voice[voice] = Some(next_event.0.clone());
                             }
                             if voice == self.channels[ch].base_voice {
                                 pushed_to_base = true;
@@ -493,7 +535,7 @@ impl MidiHandler {
                                 .push(next_event.clone());
                         }
                         if control == 7 {
-                            last_ctrl_change_per_channel[ch] = Some(&next_event.0);
+                            last_ctrl_change_per_channel[ch] = Some(next_event.0.clone());
                         }
                     }
                     MidiEvent::ProgramChange { ch, .. } => {
@@ -501,7 +543,7 @@ impl MidiHandler {
                         let mut pushed_to_base = false;
                         for &voice in active_notes[ch].values() {
                             self.voices[voice].messages.push(next_event.clone());
-                            last_prog_change_per_voice[voice] = Some(&next_event.0);
+                            last_prog_change_per_voice[voice] = Some(next_event.0.clone());
                             if voice == self.channels[ch].base_voice {
                                 pushed_to_base = true;
                             }
@@ -511,7 +553,7 @@ impl MidiHandler {
                                 .messages
                                 .push(next_event.clone());
                         }
-                        last_prog_change_per_channel[ch] = Some(&next_event.0);
+                        last_prog_change_per_channel[ch] = Some(next_event.0.clone());
                     }
                     MidiEvent::ChannelPressure { ch, .. } => {
                         let ch = ch as usize;
@@ -533,7 +575,7 @@ impl MidiHandler {
                         let mut pushed_to_base = false;
                         for &voice in active_notes[ch].values() {
                             self.voices[voice].messages.push(next_event.clone());
-                            last_pitch_bend_per_voice[voice] = Some(&next_event.0);
+                            last_pitch_bend_per_voice[voice] = Some(next_event.0.clone());
                             if voice == self.channels[ch].base_voice {
                                 pushed_to_base = true;
                             }
@@ -543,7 +585,7 @@ impl MidiHandler {
                                 .messages
                                 .push(next_event.clone());
                         }
-                        last_pitch_bend_per_channel[ch] = Some(&next_event.0);
+                        last_pitch_bend_per_channel[ch] = Some(next_event.0.clone());
                     }
                     _ => {}
                 },

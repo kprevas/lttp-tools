@@ -94,7 +94,6 @@ impl Track {
         let mut note_start: Option<u32> = None;
         let mut note_velocity = 0;
         let mut last_note_end = 0u32;
-        let mut last_ch11_instr = 0;
         let mut portamento = false;
         let mut port_time = 0u16;
         for &(ref message, abs_time) in events {
@@ -119,27 +118,10 @@ impl Track {
                 }
                 Message::MidiEvent { ref event, .. } => {
                     match *event {
-                        MidiEvent::NoteOff { ch, note, .. } => {
+                        MidiEvent::NoteOff { note, .. } => {
                             if let Some(start) = note_start {
                                 let duration =
                                     Track::get_duration(abs_time - start, ticks_per_beat, true);
-                                if ch == 10 {
-                                    let mut instr;
-                                    if note == 38 || note == 40 {
-                                        instr = SNARE;
-                                    } else {
-                                        instr = CYMBAL;
-                                    }
-                                    if last_ch11_instr != instr {
-                                        commands.push(ParameterizedCommand::new(
-                                            None,
-                                            None,
-                                            None,
-                                            Command::SetInstrument(instr),
-                                        ));
-                                        last_ch11_instr = instr;
-                                    }
-                                }
                                 let push_as_tie = commands.last().map_or(false, |cmd| cmd.is_slide());
                                 commands.push(ParameterizedCommand::new(
                                     Some(if duration.overflow_count > 0 {
@@ -232,18 +214,19 @@ impl Track {
                             }
                             // TODO
                         }
-                        MidiEvent::ProgramChange { program, .. } => {
+                        MidiEvent::ProgramChange { ch, program, .. } => {
                             last_note_end = Track::insert_rest(
                                 &mut commands,
                                 last_note_end,
                                 abs_time,
                                 ticks_per_beat,
                             );
+                            let instrument = if ch == 9 { program } else { INSTRUMENT_MAP[program as usize] };
                             commands.push(ParameterizedCommand::new(
                                 None,
                                 None,
                                 None,
-                                Command::SetInstrument(INSTRUMENT_MAP[program as usize]),
+                                Command::SetInstrument(instrument),
                             ));
                         }
                         MidiEvent::ChannelPressure { .. } => {

@@ -8,7 +8,7 @@ use std::path::*;
 use serde_json;
 
 mod command;
-mod instruments;
+pub mod instruments;
 mod seqtree;
 mod track;
 
