@@ -4,15 +4,15 @@ extern crate prefix_tree;
 #[macro_use]
 extern crate log;
 extern crate env_logger;
-extern crate termion;
-extern crate png;
 extern crate itertools;
+extern crate png;
+extern crate termion;
 
 use itertools::Itertools;
+use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::str::FromStr;
-use std::collections::HashMap;
 
 const CMD_COPY: u8 = 0;
 const CMD_BYTE_REPEAT: u8 = 1;
@@ -30,7 +30,11 @@ fn snes_bytes_to_pc(bank: u8, high: u8, low: u8) -> usize {
 }
 
 fn pc_to_snes_bytes(pc_addr: usize) -> [u8; 3] {
-    let mut bytes = [(pc_addr >> 16) as u8, ((pc_addr & 0xFF00) >> 8) as u8, (pc_addr & 0xFF) as u8];
+    let mut bytes = [
+        (pc_addr >> 16) as u8,
+        ((pc_addr & 0xFF00) >> 8) as u8,
+        (pc_addr & 0xFF) as u8,
+    ];
     bytes[0] *= 2;
     if bytes[1] >= 0x80 {
         bytes[0] += 1;
@@ -176,8 +180,7 @@ fn maybe_write_direct_copy(out: &mut Vec<u8>, mut direct_copy: &mut Vec<u8>) {
     if direct_copy.len() > 0 {
         debug!("copy {:?}", direct_copy);
         out.extend_from_slice(
-            create_compressed_command(CMD_COPY, direct_copy.len(), &direct_copy)
-                .as_slice(),
+            create_compressed_command(CMD_COPY, direct_copy.len(), &direct_copy).as_slice(),
         );
         direct_copy.clear();
     }
@@ -206,10 +209,10 @@ fn compress_sheet(sheet_data: &Vec<u8>, swap_copy_cmd: bool) -> Vec<u8> {
         while byte_repeat_offset < sheet_data.len()
             && byte_repeat_offset < offset + MAX_CMD_LEN
             && sheet_data[byte_repeat_offset] == next_byte
-            {
-                bytes_used[CMD_BYTE_REPEAT as usize] += 1;
-                byte_repeat_offset += 1;
-            }
+        {
+            bytes_used[CMD_BYTE_REPEAT as usize] += 1;
+            byte_repeat_offset += 1;
+        }
 
         // try word repeat
         if offset + 1 < sheet_data.len() {
@@ -219,13 +222,14 @@ fn compress_sheet(sheet_data: &Vec<u8>, swap_copy_cmd: bool) -> Vec<u8> {
                 && word_repeat_offset + 1 < offset + MAX_CMD_LEN
                 && sheet_data[word_repeat_offset] == next_byte
                 && sheet_data[word_repeat_offset + 1] == next_word_lo
-                {
-                    bytes_used[CMD_WORD_REPEAT as usize] += 2;
-                    word_repeat_offset += 2;
-                }
+            {
+                bytes_used[CMD_WORD_REPEAT as usize] += 2;
+                word_repeat_offset += 2;
+            }
             if word_repeat_offset < sheet_data.len()
                 && word_repeat_offset < offset + MAX_CMD_LEN
-                && sheet_data[word_repeat_offset] == next_byte {
+                && sheet_data[word_repeat_offset] == next_byte
+            {
                 bytes_used[CMD_WORD_REPEAT as usize] += 1;
             }
         }
@@ -236,11 +240,11 @@ fn compress_sheet(sheet_data: &Vec<u8>, swap_copy_cmd: bool) -> Vec<u8> {
             && byte_increment_offset < offset + MAX_CMD_LEN
             && 0xFF - (byte_increment_offset - offset) as u8 > next_byte
             && sheet_data[byte_increment_offset]
-            == next_byte + (byte_increment_offset - offset) as u8
-            {
-                bytes_used[CMD_BYTE_INCREMENT as usize] += 1;
-                byte_increment_offset += 1;
-            }
+                == next_byte + (byte_increment_offset - offset) as u8
+        {
+            bytes_used[CMD_BYTE_INCREMENT as usize] += 1;
+            byte_increment_offset += 1;
+        }
 
         // try copy existing
         let mut copy_existing_end = offset + 4;
@@ -248,13 +252,13 @@ fn compress_sheet(sheet_data: &Vec<u8>, swap_copy_cmd: bool) -> Vec<u8> {
             && copy_existing_end <= offset + MAX_CMD_LEN
             && copy_existing_end - offset < offset
             && prefix_tree
-            .find(&sheet_data[offset..copy_existing_end])
-            .map_or(std::usize::MAX, |node| node.value.unwrap())
-            <= offset - (copy_existing_end - offset)
-            {
-                bytes_used[CMD_COPY_EXISTING as usize] = copy_existing_end - offset;
-                copy_existing_end += 1;
-            }
+                .find(&sheet_data[offset..copy_existing_end])
+                .map_or(std::usize::MAX, |node| node.value.unwrap())
+                <= offset - (copy_existing_end - offset)
+        {
+            bytes_used[CMD_COPY_EXISTING as usize] = copy_existing_end - offset;
+            copy_existing_end += 1;
+        }
 
         let cmd = bytes_used
             .iter()
@@ -288,7 +292,7 @@ fn compress_sheet(sheet_data: &Vec<u8>, swap_copy_cmd: bool) -> Vec<u8> {
                         bytes_used[CMD_BYTE_REPEAT as usize],
                         &[sheet_data[offset]],
                     )
-                        .as_slice(),
+                    .as_slice(),
                 );
             }
             CMD_WORD_REPEAT => {
@@ -305,7 +309,7 @@ fn compress_sheet(sheet_data: &Vec<u8>, swap_copy_cmd: bool) -> Vec<u8> {
                         bytes_used[CMD_WORD_REPEAT as usize],
                         &[sheet_data[offset], sheet_data[offset + 1]],
                     )
-                        .as_slice(),
+                    .as_slice(),
                 );
             }
             CMD_BYTE_INCREMENT => {
@@ -320,7 +324,7 @@ fn compress_sheet(sheet_data: &Vec<u8>, swap_copy_cmd: bool) -> Vec<u8> {
                         bytes_used[CMD_BYTE_INCREMENT as usize],
                         &[sheet_data[offset]],
                     )
-                        .as_slice(),
+                    .as_slice(),
                 );
             }
             CMD_COPY_EXISTING => {
@@ -348,7 +352,7 @@ fn compress_sheet(sheet_data: &Vec<u8>, swap_copy_cmd: bool) -> Vec<u8> {
                         bytes_used[CMD_COPY_EXISTING as usize],
                         &copy_source_bytes,
                     )
-                        .as_slice(),
+                    .as_slice(),
                 );
             }
             _ => {}
@@ -456,7 +460,7 @@ fn dump_sheet(sheet: usize, sheet_data: &Vec<Vec<u8>>, sheet_addr: usize) {
                 7 => print!("{}█", termion::color::Fg(termion::color::White)),
                 _ => {}
             };
-        };
+        }
         println!();
     }
 }
@@ -485,7 +489,7 @@ fn main() {
             (@arg sheet: -s --sheet +takes_value "target tile sheet (0-222)")
         )
     )
-        .get_matches();
+    .get_matches();
 
     let input_rom_path = matches.value_of("in_ROM").unwrap();
     let bank_table_addr = usize::from_str_radix(
@@ -495,7 +499,7 @@ fn main() {
             .trim_left_matches("0x"),
         16,
     )
-        .unwrap();
+    .unwrap();
     let hi_table_addr = usize::from_str_radix(
         matches
             .value_of("hitable")
@@ -503,7 +507,7 @@ fn main() {
             .trim_left_matches("0x"),
         16,
     )
-        .unwrap();
+    .unwrap();
     let lo_table_addr = usize::from_str_radix(
         matches
             .value_of("lotable")
@@ -511,7 +515,7 @@ fn main() {
             .trim_left_matches("0x"),
         16,
     )
-        .unwrap();
+    .unwrap();
 
     let mut file = OpenOptions::new()
         .read(true)
@@ -546,35 +550,62 @@ fn main() {
         let decoder = png::Decoder::new(png_file);
         let (_, mut reader) = decoder.read_info().unwrap();
         let first_row = reader.next_row().unwrap().unwrap();
-        let palette: HashMap<(u8, u8, u8), usize> = first_row.iter().tuples::<(_, _, _)>().take(8).enumerate().map(|(a, (r, g, b))| ((*r, *g, *b), a)).collect();
+        let palette: HashMap<(u8, u8, u8), usize> = first_row
+            .iter()
+            .tuples::<(_, _, _)>()
+            .take(8)
+            .enumerate()
+            .map(|(a, (r, g, b))| ((*r, *g, *b), a))
+            .collect();
         let mut png_y = 0;
         let mut row = reader.next_row().unwrap();
         while row.is_some() {
             let mut png_x = 0;
-            for px in row.unwrap().iter().tuples::<(_, _, _)>().map(|(r, g, b)| (*r, *g, *b)) {
+            for px in row
+                .unwrap()
+                .iter()
+                .tuples::<(_, _, _)>()
+                .map(|(r, g, b)| (*r, *g, *b))
+            {
                 sheet_data[y + png_y][x + png_x] = *palette.get(&px).unwrap() as u8;
                 png_x += 1;
-            };
+            }
             row = reader.next_row().unwrap();
             png_y += 1;
-        };
+        }
 
         let out_sheet = pixels_to_bpp3_sheet(&sheet_data);
         let compressed_sheet = compress_sheet(&out_sheet, true);
 
         if patch.is_present("verify") {
-            assert_eq!(sheet_data, bpp3_sheet_to_pixels(&decompress_sheet(&compressed_sheet, 0, 0x600, true)));
+            assert_eq!(
+                sheet_data,
+                bpp3_sheet_to_pixels(&decompress_sheet(&compressed_sheet, 0, 0x600, true))
+            );
         };
 
-        let exp_start = patch.value_of("expanded_tiles_start").map_or(0x110000, |str| usize::from_str_radix(str, 16).unwrap());
-        let exp_size = patch.value_of("expanded_tiles_size").map_or(0x1000, |str| usize::from_str_radix(str, 16).unwrap());
+        let exp_start = patch
+            .value_of("expanded_tiles_start")
+            .map_or(0x110000, |arg| {
+                usize::from_str_radix(arg.trim_left_matches("0x"), 16).unwrap()
+            });
+        let exp_size = patch.value_of("expanded_tiles_size").map_or(0x1000, |arg| {
+            usize::from_str_radix(arg.trim_left_matches("0x"), 16).unwrap()
+        });
         let sheet_start = exp_start + (exp_size * sheet);
 
         romdata.splice(
             sheet_start..sheet_start + compressed_sheet.len(),
             compressed_sheet.iter().cloned(),
         );
-        put_gfx_address(sheet, &mut romdata, bank_table_addr, hi_table_addr, lo_table_addr, sheet_start);
+        put_gfx_address(
+            sheet,
+            &mut romdata,
+            bank_table_addr,
+            hi_table_addr,
+            lo_table_addr,
+            sheet_start,
+        );
 
         let mut file = OpenOptions::new()
             .read(false)
@@ -586,7 +617,11 @@ fn main() {
     }
     if let Some(dump) = matches.subcommand_matches("dump") {
         for sheet in 0..113 {
-            if dump.value_of("sheet").map_or(sheet, |arg| usize::from_str(arg).unwrap()) == sheet {
+            if dump
+                .value_of("sheet")
+                .map_or(sheet, |arg| usize::from_str(arg).unwrap())
+                == sheet
+            {
                 let sheet_addr = get_gfx_address(
                     sheet,
                     &romdata,
