@@ -173,7 +173,7 @@ fn create_compressed_command(cmd: u8, length: usize, args: &[u8]) -> Vec<u8> {
     out
 }
 
-fn maybe_write_direct_copy(out: &mut Vec<u8>, mut direct_copy: &mut Vec<u8>) {
+fn maybe_write_direct_copy(out: &mut Vec<u8>, direct_copy: &mut Vec<u8>) {
     if direct_copy.len() > 0 {
         debug!("copy {:?}", direct_copy);
         out.extend_from_slice(
@@ -462,6 +462,112 @@ fn dump_sheet(sheet: usize, sheet_data: &Vec<Vec<u8>>, sheet_addr: usize) {
     }
 }
 
+fn dump_sheets(
+    bank_table_addr: usize,
+    hi_table_addr: usize,
+    lo_table_addr: usize,
+    romdata: &mut Vec<u8>,
+    sheet_arg: Option<usize>,
+) -> () {
+    for sheet in 0..113 {
+        if sheet_arg.is_none() || sheet_arg.unwrap() == sheet {
+            let sheet_addr = get_gfx_address(
+                sheet,
+                &romdata,
+                bank_table_addr,
+                hi_table_addr,
+                lo_table_addr,
+            );
+            let decompressed_sheet = decompress_sheet(&romdata, sheet_addr, 0x800, true);
+            let sheet_data = bpp3_sheet_to_pixels(&decompressed_sheet);
+
+            dump_sheet(sheet, &sheet_data, sheet_addr);
+        }
+    }
+}
+
+fn patch_tile(
+    bank_table_addr: usize,
+    hi_table_addr: usize,
+    lo_table_addr: usize,
+    mut romdata: &mut Vec<u8>,
+    output_rom_path: &str,
+    png_path: &str,
+    sheet: usize,
+    x: usize,
+    y: usize,
+    verify: bool,
+    sheet_start: usize,
+) {
+    let sheet_addr = get_gfx_address(
+        sheet,
+        &romdata,
+        bank_table_addr,
+        hi_table_addr,
+        lo_table_addr,
+    );
+    let decompressed_sheet = decompress_sheet(&romdata, sheet_addr, 0x600, true);
+    let mut sheet_data = bpp3_sheet_to_pixels(&decompressed_sheet);
+    let png_file = OpenOptions::new()
+        .read(true)
+        .write(false)
+        .open(png_path)
+        .unwrap();
+    let decoder = png::Decoder::new(png_file);
+    let (_, mut reader) = decoder.read_info().unwrap();
+    let first_row = reader.next_row().unwrap().unwrap();
+    let palette: HashMap<(u8, u8, u8), usize> = first_row
+        .iter()
+        .tuples::<(_, _, _)>()
+        .take(8)
+        .enumerate()
+        .map(|(a, (r, g, b))| ((*r, *g, *b), a))
+        .collect();
+    let mut png_y = 0;
+    let mut row = reader.next_row().unwrap();
+    while row.is_some() {
+        let mut png_x = 0;
+        for px in row
+            .unwrap()
+            .iter()
+            .tuples::<(_, _, _)>()
+            .map(|(r, g, b)| (*r, *g, *b))
+        {
+            sheet_data[y + png_y][x + png_x] = *palette.get(&px).unwrap() as u8;
+            png_x += 1;
+        }
+        row = reader.next_row().unwrap();
+        png_y += 1;
+    }
+    let out_sheet = pixels_to_bpp3_sheet(&sheet_data);
+    let compressed_sheet = compress_sheet(&out_sheet, true);
+    if verify {
+        assert_eq!(
+            sheet_data,
+            bpp3_sheet_to_pixels(&decompress_sheet(&compressed_sheet, 0, 0x600, true))
+        );
+    };
+    romdata.splice(
+        sheet_start..sheet_start + compressed_sheet.len(),
+        compressed_sheet.iter().cloned(),
+    );
+    put_gfx_address(
+        sheet,
+        &mut romdata,
+        bank_table_addr,
+        hi_table_addr,
+        lo_table_addr,
+        sheet_start,
+    );
+    let mut file = OpenOptions::new()
+        .read(false)
+        .write(true)
+        .create(true)
+        .open(output_rom_path)
+        .unwrap();
+    file.write(&romdata).unwrap();
+}
+
 fn main() {
     env_logger::init();
 
@@ -523,64 +629,7 @@ fn main() {
     file.read_to_end(&mut romdata).unwrap();
 
     if let Some(patch) = matches.subcommand_matches("patch") {
-        let output_rom_path = patch.value_of("out_ROM").unwrap();
-        let png_path = patch.value_of("in_png").unwrap();
-        let png_file = OpenOptions::new()
-            .read(true)
-            .write(false)
-            .open(png_path)
-            .unwrap();
         let sheet = usize::from_str(patch.value_of("sheet").unwrap()).unwrap();
-        let x = usize::from_str(patch.value_of("x").unwrap()).unwrap();
-        let y = usize::from_str(patch.value_of("y").unwrap()).unwrap();
-
-        let sheet_addr = get_gfx_address(
-            sheet,
-            &romdata,
-            bank_table_addr,
-            hi_table_addr,
-            lo_table_addr,
-        );
-        let decompressed_sheet = decompress_sheet(&romdata, sheet_addr, 0x600, true);
-        let mut sheet_data = bpp3_sheet_to_pixels(&decompressed_sheet);
-
-        let decoder = png::Decoder::new(png_file);
-        let (_, mut reader) = decoder.read_info().unwrap();
-        let first_row = reader.next_row().unwrap().unwrap();
-        let palette: HashMap<(u8, u8, u8), usize> = first_row
-            .iter()
-            .tuples::<(_, _, _)>()
-            .take(8)
-            .enumerate()
-            .map(|(a, (r, g, b))| ((*r, *g, *b), a))
-            .collect();
-        let mut png_y = 0;
-        let mut row = reader.next_row().unwrap();
-        while row.is_some() {
-            let mut png_x = 0;
-            for px in row
-                .unwrap()
-                .iter()
-                .tuples::<(_, _, _)>()
-                .map(|(r, g, b)| (*r, *g, *b))
-            {
-                sheet_data[y + png_y][x + png_x] = *palette.get(&px).unwrap() as u8;
-                png_x += 1;
-            }
-            row = reader.next_row().unwrap();
-            png_y += 1;
-        }
-
-        let out_sheet = pixels_to_bpp3_sheet(&sheet_data);
-        let compressed_sheet = compress_sheet(&out_sheet, true);
-
-        if patch.is_present("verify") {
-            assert_eq!(
-                sheet_data,
-                bpp3_sheet_to_pixels(&decompress_sheet(&compressed_sheet, 0, 0x600, true))
-            );
-        };
-
         let exp_start = patch
             .value_of("expanded_tiles_start")
             .map_or(0x110000, |arg| {
@@ -591,46 +640,28 @@ fn main() {
         });
         let sheet_start = exp_start + (exp_size * sheet);
 
-        romdata.splice(
-            sheet_start..sheet_start + compressed_sheet.len(),
-            compressed_sheet.iter().cloned(),
-        );
-        put_gfx_address(
-            sheet,
-            &mut romdata,
+        patch_tile(
             bank_table_addr,
             hi_table_addr,
             lo_table_addr,
+            &mut romdata,
+            patch.value_of("out_ROM").unwrap(),
+            patch.value_of("in_png").unwrap(),
+            sheet,
+            usize::from_str(patch.value_of("x").unwrap()).unwrap(),
+            usize::from_str(patch.value_of("y").unwrap()).unwrap(),
+            patch.is_present("verify"),
             sheet_start,
         );
-
-        let mut file = OpenOptions::new()
-            .read(false)
-            .write(true)
-            .create(true)
-            .open(output_rom_path)
-            .unwrap();
-        file.write(&romdata).unwrap();
     }
     if let Some(dump) = matches.subcommand_matches("dump") {
-        for sheet in 0..113 {
-            if dump
-                .value_of("sheet")
-                .map_or(sheet, |arg| usize::from_str(arg).unwrap())
-                == sheet
-            {
-                let sheet_addr = get_gfx_address(
-                    sheet,
-                    &romdata,
-                    bank_table_addr,
-                    hi_table_addr,
-                    lo_table_addr,
-                );
-                let decompressed_sheet = decompress_sheet(&romdata, sheet_addr, 0x800, true);
-                let sheet_data = bpp3_sheet_to_pixels(&decompressed_sheet);
-
-                dump_sheet(sheet, &sheet_data, sheet_addr);
-            }
-        }
+        dump_sheets(
+            bank_table_addr,
+            hi_table_addr,
+            lo_table_addr,
+            &mut romdata,
+            dump.value_of("sheet")
+                .map(|arg| usize::from_str(arg).unwrap()),
+        )
     }
 }
