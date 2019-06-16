@@ -21,12 +21,9 @@ const CMD_BYTE_INCREMENT: u8 = 3;
 const CMD_COPY_EXISTING: u8 = 4;
 const MAX_CMD_LEN: usize = 1024;
 
-fn snes_to_pc(snes_addr: u32) -> usize {
-    ((snes_addr & 0x7FFF) + ((snes_addr / 2) & 0xFF8000)) as usize
-}
-
 fn snes_bytes_to_pc(bank: u8, high: u8, low: u8) -> usize {
-    snes_to_pc(((bank as u32) << 16) + ((high as u32) << 8) + (low as u32))
+    let snes_addr = ((bank as u32) << 16) + ((high as u32) << 8) + (low as u32);
+    ((snes_addr & 0x7FFF) + ((snes_addr / 2) & 0xFF8000)) as usize
 }
 
 fn pc_to_snes_bytes(pc_addr: usize) -> [u8; 3] {
