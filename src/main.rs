@@ -172,6 +172,17 @@ fn create_compressed_command(cmd: u8, length: usize, args: &[u8]) -> Vec<u8> {
     out
 }
 
+fn maybe_write_direct_copy(out: &mut Vec<u8>, mut direct_copy: &mut Vec<u8>) {
+    if direct_copy.len() > 0 {
+        debug!("copy {:?}", direct_copy);
+        out.extend_from_slice(
+            create_compressed_command(CMD_COPY, direct_copy.len(), &direct_copy)
+                .as_slice(),
+        );
+        direct_copy.clear();
+    }
+}
+
 fn compress_sheet(sheet_data: &Vec<u8>, swap_copy_cmd: bool) -> Vec<u8> {
     info!("compress sheet");
     let mut out = vec![];
@@ -266,14 +277,7 @@ fn compress_sheet(sheet_data: &Vec<u8>, swap_copy_cmd: bool) -> Vec<u8> {
                 }
             }
             CMD_BYTE_REPEAT => {
-                if direct_copy.len() > 0 {
-                    debug!("copy {:?}", direct_copy);
-                    out.extend_from_slice(
-                        create_compressed_command(CMD_COPY, direct_copy.len(), &direct_copy)
-                            .as_slice(),
-                    );
-                    direct_copy.clear();
-                }
+                maybe_write_direct_copy(&mut out, &mut direct_copy);
                 debug!(
                     "byte repeat {:2X} {}",
                     sheet_data[offset], bytes_used[CMD_BYTE_REPEAT as usize]
@@ -288,14 +292,7 @@ fn compress_sheet(sheet_data: &Vec<u8>, swap_copy_cmd: bool) -> Vec<u8> {
                 );
             }
             CMD_WORD_REPEAT => {
-                if direct_copy.len() > 0 {
-                    debug!("copy {:?}", direct_copy);
-                    out.extend_from_slice(
-                        create_compressed_command(CMD_COPY, direct_copy.len(), &direct_copy)
-                            .as_slice(),
-                    );
-                    direct_copy.clear();
-                }
+                maybe_write_direct_copy(&mut out, &mut direct_copy);
                 debug!(
                     "word repeat {:2X}{:2X} {}",
                     sheet_data[offset],
@@ -312,14 +309,7 @@ fn compress_sheet(sheet_data: &Vec<u8>, swap_copy_cmd: bool) -> Vec<u8> {
                 );
             }
             CMD_BYTE_INCREMENT => {
-                if direct_copy.len() > 0 {
-                    debug!("copy {:?}", direct_copy);
-                    out.extend_from_slice(
-                        create_compressed_command(CMD_COPY, direct_copy.len(), &direct_copy)
-                            .as_slice(),
-                    );
-                    direct_copy.clear();
-                }
+                maybe_write_direct_copy(&mut out, &mut direct_copy);
                 debug!(
                     "byte increment {:2X} {}",
                     sheet_data[offset], bytes_used[CMD_BYTE_INCREMENT as usize]
@@ -334,14 +324,7 @@ fn compress_sheet(sheet_data: &Vec<u8>, swap_copy_cmd: bool) -> Vec<u8> {
                 );
             }
             CMD_COPY_EXISTING => {
-                if direct_copy.len() > 0 {
-                    debug!("copy {:?}", direct_copy);
-                    out.extend_from_slice(
-                        create_compressed_command(CMD_COPY, direct_copy.len(), &direct_copy)
-                            .as_slice(),
-                    );
-                    direct_copy.clear();
-                }
+                maybe_write_direct_copy(&mut out, &mut direct_copy);
                 let copy_source = prefix_tree
                     .find(
                         &sheet_data
