@@ -20,6 +20,26 @@ const CMD_WORD_REPEAT: u8 = 2;
 const CMD_BYTE_INCREMENT: u8 = 3;
 const CMD_COPY_EXISTING: u8 = 4;
 const MAX_CMD_LEN: usize = 1024;
+const MAX_COPY_EXISTING_LEN: usize = 100;
+
+const DEFAULT_EXPANDED_TILES_START: usize = 0x110000;
+const DEFAULT_EXPANDED_TILES_SIZE: usize = 0x1000;
+
+const PALETTE_SIZE: usize = 8;
+
+const BANK_TABLE_POINTER: usize = 0x6790;
+const HI_TABLE_POINTER: usize = 0x6795;
+const LO_TABLE_POINTER: usize = 0x679A;
+
+const BPP3_SHEET_LEN: usize = 0x600;
+const BPP2_SHEET_LEN: usize = 0x800;
+
+const SHEETS_BG_TILES: usize = 113;
+const SHEETS_2BPP_1: usize = 115; // TODO: better name
+const SHEETS_LINK_SPRITES: usize = 127;
+const SHEETS_3BPP_SPRITES: usize = 218; // TODO: better name
+const SHEETS_2BPP_2: usize = 223; // TODO: better name
+const SHEETS_MAX: usize = 223;
 
 fn snes_bytes_to_pc(bank: u8, high: u8, low: u8) -> usize {
     let snes_addr = ((bank as u32) << 16) + ((high as u32) << 8) + (low as u32);
@@ -189,7 +209,7 @@ fn compress_sheet(sheet_data: &Vec<u8>, swap_copy_cmd: bool) -> Vec<u8> {
 
     let mut prefix_tree = prefix_tree::Tree::new();
     for start in 0..sheet_data.len() - 4 {
-        for end in start + 4..std::cmp::min(sheet_data.len(), start + 100) {
+        for end in start + 4..std::cmp::min(sheet_data.len(), start + MAX_COPY_EXISTING_LEN) {
             prefix_tree.insert(&sheet_data[start..end], start);
         }
     }
@@ -406,7 +426,7 @@ fn bpp3_sheet_to_pixels(sheet: &Vec<u8>) -> Vec<Vec<u8>> {
 }
 
 fn pixels_to_bpp3_sheet(px_data: &Vec<Vec<u8>>) -> Vec<u8> {
-    let mut out = vec![0; 0x600];
+    let mut out = vec![0; BPP3_SHEET_LEN];
     for tile_y in 0..4 {
         for tile_x in 0..16 {
             for px_y in 0..8 {
@@ -469,7 +489,7 @@ fn dump_sheets(
     romdata: &mut Vec<u8>,
     sheet_arg: Option<usize>,
 ) -> () {
-    for sheet in 0..113 {
+    for sheet in 0..SHEETS_BG_TILES {
         if sheet_arg.is_none() || sheet_arg.unwrap() == sheet {
             let sheet_addr = get_gfx_address(
                 sheet,
@@ -478,7 +498,8 @@ fn dump_sheets(
                 hi_table_addr,
                 lo_table_addr,
             );
-            let decompressed_sheet = decompress_sheet(&romdata, sheet_addr, 0x800, true);
+            let sheet_len = BPP3_SHEET_LEN;
+            let decompressed_sheet = decompress_sheet(&romdata, sheet_addr, sheet_len, true);
             let sheet_data = bpp3_sheet_to_pixels(&decompressed_sheet);
 
             dump_sheet(sheet, &sheet_data, sheet_addr);
@@ -506,7 +527,8 @@ fn patch_tile(
         hi_table_addr,
         lo_table_addr,
     );
-    let decompressed_sheet = decompress_sheet(&romdata, sheet_addr, 0x600, true);
+    let sheet_len = BPP3_SHEET_LEN;
+    let decompressed_sheet = decompress_sheet(&romdata, sheet_addr, sheet_len, true);
     let mut sheet_data = bpp3_sheet_to_pixels(&decompressed_sheet);
     let png_file = OpenOptions::new()
         .read(true)
@@ -519,7 +541,7 @@ fn patch_tile(
     let palette: HashMap<(u8, u8, u8), usize> = first_row
         .iter()
         .tuples::<(_, _, _)>()
-        .take(8)
+        .take(PALETTE_SIZE)
         .enumerate()
         .map(|(a, (r, g, b))| ((*r, *g, *b), a))
         .collect();
@@ -544,7 +566,7 @@ fn patch_tile(
     if verify {
         assert_eq!(
             sheet_data,
-            bpp3_sheet_to_pixels(&decompress_sheet(&compressed_sheet, 0, 0x600, true))
+            bpp3_sheet_to_pixels(&decompress_sheet(&compressed_sheet, 0, sheet_len, true))
         );
     };
     romdata.splice(
@@ -595,30 +617,17 @@ fn main() {
     .get_matches();
 
     let input_rom_path = matches.value_of("in_ROM").unwrap();
-    let bank_table_addr = usize::from_str_radix(
-        matches
-            .value_of("banktable")
-            .unwrap_or("0x6790")
-            .trim_left_matches("0x"),
-        16,
-    )
-    .unwrap();
-    let hi_table_addr = usize::from_str_radix(
-        matches
-            .value_of("hitable")
-            .unwrap_or("0x6795")
-            .trim_left_matches("0x"),
-        16,
-    )
-    .unwrap();
-    let lo_table_addr = usize::from_str_radix(
-        matches
-            .value_of("lotable")
-            .unwrap_or("0x679A")
-            .trim_left_matches("0x"),
-        16,
-    )
-    .unwrap();
+    let bank_table_addr = matches
+        .value_of("banktable")
+        .map_or(BANK_TABLE_POINTER, |arg| {
+            usize::from_str_radix(arg.trim_left_matches("0x"), 16).unwrap()
+        });
+    let hi_table_addr = matches.value_of("hitable").map_or(HI_TABLE_POINTER, |arg| {
+        usize::from_str_radix(arg.trim_left_matches("0x"), 16).unwrap()
+    });
+    let lo_table_addr = matches.value_of("lotable").map_or(LO_TABLE_POINTER, |arg| {
+        usize::from_str_radix(arg.trim_left_matches("0x"), 16).unwrap()
+    });
 
     let mut file = OpenOptions::new()
         .read(true)
@@ -632,12 +641,14 @@ fn main() {
         let sheet = usize::from_str(patch.value_of("sheet").unwrap()).unwrap();
         let exp_start = patch
             .value_of("expanded_tiles_start")
-            .map_or(0x110000, |arg| {
+            .map_or(DEFAULT_EXPANDED_TILES_START, |arg| {
                 usize::from_str_radix(arg.trim_left_matches("0x"), 16).unwrap()
             });
-        let exp_size = patch.value_of("expanded_tiles_size").map_or(0x1000, |arg| {
-            usize::from_str_radix(arg.trim_left_matches("0x"), 16).unwrap()
-        });
+        let exp_size = patch
+            .value_of("expanded_tiles_size")
+            .map_or(DEFAULT_EXPANDED_TILES_SIZE, |arg| {
+                usize::from_str_radix(arg.trim_left_matches("0x"), 16).unwrap()
+            });
         let sheet_start = exp_start + (exp_size * sheet);
 
         patch_tile(
