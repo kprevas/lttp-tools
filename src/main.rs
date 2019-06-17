@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::str::FromStr;
+use std::ops::Range;
 
 const CMD_COPY: u8 = 0;
 const CMD_BYTE_REPEAT: u8 = 1;
@@ -34,11 +35,11 @@ const LO_TABLE_POINTER: usize = 0x679A;
 const BPP3_SHEET_LEN: usize = 0x600;
 const BPP2_SHEET_LEN: usize = 0x800;
 
-const SHEETS_BG_TILES: usize = 113;
-const SHEETS_2BPP_1: usize = 115; // TODO: better name
-const SHEETS_LINK_SPRITES: usize = 127;
-const SHEETS_3BPP_SPRITES: usize = 218; // TODO: better name
-const SHEETS_2BPP_2: usize = 223; // TODO: better name
+const SHEETS_BG_TILES: Range<usize> = 0..113;
+const SHEETS_2BPP_1: Range<usize> = 113..115; // TODO: better name
+const SHEETS_LINK_SPRITES: Range<usize> = 115..127;
+const SHEETS_3BPP_SPRITES: Range<usize> = 127..218; // TODO: better name
+const SHEETS_2BPP_2: Range<usize> = 218..223; // TODO: better name
 const SHEETS_MAX: usize = 223;
 
 fn snes_bytes_to_pc(bank: u8, high: u8, low: u8) -> usize {
@@ -59,6 +60,14 @@ fn pc_to_snes_bytes(pc_addr: usize) -> [u8; 3] {
         bytes[1] += 0x80;
     }
     bytes
+}
+
+fn is_compressed(sheet: usize) -> bool {
+    !SHEETS_LINK_SPRITES.contains(&sheet)
+}
+
+fn is_3bpp(sheet: usize) -> bool {
+    !SHEETS_2BPP_1.contains(&sheet) && !SHEETS_2BPP_2.contains(&sheet)
 }
 
 fn get_gfx_address(
@@ -462,6 +471,20 @@ fn pixels_to_bpp3_sheet(px_data: &Vec<Vec<u8>>) -> Vec<u8> {
     out
 }
 
+fn load_sheet(bank_table_addr: usize, hi_table_addr: usize, lo_table_addr: usize, romdata: &Vec<u8>, sheet: usize) -> (usize, usize, Vec<Vec<u8>>) {
+    let sheet_addr = get_gfx_address(
+        sheet,
+        &romdata,
+        bank_table_addr,
+        hi_table_addr,
+        lo_table_addr,
+    );
+    let sheet_len = BPP3_SHEET_LEN;
+    let decompressed_sheet = decompress_sheet(&romdata, sheet_addr, sheet_len, true);
+    let sheet_data = bpp3_sheet_to_pixels(&decompressed_sheet);
+    (sheet_addr, sheet_len, sheet_data)
+}
+
 fn dump_sheet(sheet: usize, sheet_data: &Vec<Vec<u8>>, sheet_addr: usize) {
     println!("sheet {} at {:06X}:", sheet, sheet_addr);
     for line in sheet_data {
@@ -489,19 +512,9 @@ fn dump_sheets(
     romdata: &mut Vec<u8>,
     sheet_arg: Option<usize>,
 ) -> () {
-    for sheet in 0..SHEETS_BG_TILES {
+    for sheet in SHEETS_BG_TILES {
         if sheet_arg.is_none() || sheet_arg.unwrap() == sheet {
-            let sheet_addr = get_gfx_address(
-                sheet,
-                &romdata,
-                bank_table_addr,
-                hi_table_addr,
-                lo_table_addr,
-            );
-            let sheet_len = BPP3_SHEET_LEN;
-            let decompressed_sheet = decompress_sheet(&romdata, sheet_addr, sheet_len, true);
-            let sheet_data = bpp3_sheet_to_pixels(&decompressed_sheet);
-
+            let (sheet_addr, _, sheet_data) = load_sheet(bank_table_addr, hi_table_addr, lo_table_addr, &romdata, sheet);
             dump_sheet(sheet, &sheet_data, sheet_addr);
         }
     }
@@ -520,16 +533,7 @@ fn patch_tile(
     verify: bool,
     sheet_start: usize,
 ) {
-    let sheet_addr = get_gfx_address(
-        sheet,
-        &romdata,
-        bank_table_addr,
-        hi_table_addr,
-        lo_table_addr,
-    );
-    let sheet_len = BPP3_SHEET_LEN;
-    let decompressed_sheet = decompress_sheet(&romdata, sheet_addr, sheet_len, true);
-    let mut sheet_data = bpp3_sheet_to_pixels(&decompressed_sheet);
+    let (sheet_addr, sheet_len, mut sheet_data) = load_sheet(bank_table_addr, hi_table_addr, lo_table_addr, &romdata, sheet);
     let png_file = OpenOptions::new()
         .read(true)
         .write(false)
