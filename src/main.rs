@@ -533,7 +533,7 @@ fn patch_tile(
     verify: bool,
     sheet_start: usize,
 ) {
-    let (sheet_addr, sheet_len, mut sheet_data) = load_sheet(bank_table_addr, hi_table_addr, lo_table_addr, &romdata, sheet);
+    let (_, sheet_len, mut sheet_data) = load_sheet(bank_table_addr, hi_table_addr, lo_table_addr, &romdata, sheet);
     let png_file = OpenOptions::new()
         .read(true)
         .write(false)
@@ -624,13 +624,13 @@ fn main() {
     let bank_table_addr = matches
         .value_of("banktable")
         .map_or(BANK_TABLE_POINTER, |arg| {
-            usize::from_str_radix(arg.trim_left_matches("0x"), 16).unwrap()
+            usize::from_str_radix(arg.trim_start_matches("0x"), 16).unwrap()
         });
     let hi_table_addr = matches.value_of("hitable").map_or(HI_TABLE_POINTER, |arg| {
-        usize::from_str_radix(arg.trim_left_matches("0x"), 16).unwrap()
+        usize::from_str_radix(arg.trim_start_matches("0x"), 16).unwrap()
     });
     let lo_table_addr = matches.value_of("lotable").map_or(LO_TABLE_POINTER, |arg| {
-        usize::from_str_radix(arg.trim_left_matches("0x"), 16).unwrap()
+        usize::from_str_radix(arg.trim_start_matches("0x"), 16).unwrap()
     });
 
     let mut file = OpenOptions::new()
@@ -646,12 +646,12 @@ fn main() {
         let exp_start = patch
             .value_of("expanded_tiles_start")
             .map_or(DEFAULT_EXPANDED_TILES_START, |arg| {
-                usize::from_str_radix(arg.trim_left_matches("0x"), 16).unwrap()
+                usize::from_str_radix(arg.trim_start_matches("0x"), 16).unwrap()
             });
         let exp_size = patch
             .value_of("expanded_tiles_size")
             .map_or(DEFAULT_EXPANDED_TILES_SIZE, |arg| {
-                usize::from_str_radix(arg.trim_left_matches("0x"), 16).unwrap()
+                usize::from_str_radix(arg.trim_start_matches("0x"), 16).unwrap()
             });
         let sheet_start = exp_start + (exp_size * sheet);
 
