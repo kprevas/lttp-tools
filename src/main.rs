@@ -7,13 +7,16 @@ extern crate env_logger;
 extern crate itertools;
 extern crate png;
 extern crate termion;
+#[macro_use]
+extern crate failure;
 
+use failure::Error;
 use itertools::Itertools;
 use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
-use std::str::FromStr;
 use std::ops::Range;
+use std::str::FromStr;
 
 const CMD_COPY: u8 = 0;
 const CMD_BYTE_REPEAT: u8 = 1;
@@ -26,8 +29,6 @@ const MAX_COPY_EXISTING_LEN: usize = 100;
 const DEFAULT_EXPANDED_TILES_START: usize = 0x110000;
 const DEFAULT_EXPANDED_TILES_SIZE: usize = 0x1000;
 
-const PALETTE_SIZE: usize = 8;
-
 const BANK_TABLE_POINTER: usize = 0x6790;
 const HI_TABLE_POINTER: usize = 0x6795;
 const LO_TABLE_POINTER: usize = 0x679A;
@@ -35,10 +36,10 @@ const LO_TABLE_POINTER: usize = 0x679A;
 const BPP3_SHEET_LEN: usize = 0x600;
 const BPP2_SHEET_LEN: usize = 0x800;
 
-const SHEETS_BG_TILES: Range<usize> = 0..113;
+const _SHEETS_BG_TILES: Range<usize> = 0..113;
 const SHEETS_2BPP_1: Range<usize> = 113..115; // TODO: better name
-const SHEETS_LINK_SPRITES: Range<usize> = 115..127;
-const SHEETS_3BPP_SPRITES: Range<usize> = 127..218; // TODO: better name
+const SHEETS_UNCOMPRESSED_3BPP_SPRITES: Range<usize> = 115..127;
+const _SHEETS_COMPRESSED_3BPP_SPRITES: Range<usize> = 127..218;
 const SHEETS_2BPP_2: Range<usize> = 218..223; // TODO: better name
 const SHEETS_MAX: usize = 223;
 
@@ -63,11 +64,19 @@ fn pc_to_snes_bytes(pc_addr: usize) -> [u8; 3] {
 }
 
 fn is_compressed(sheet: usize) -> bool {
-    !SHEETS_LINK_SPRITES.contains(&sheet)
+    !SHEETS_UNCOMPRESSED_3BPP_SPRITES.contains(&sheet)
 }
 
 fn is_3bpp(sheet: usize) -> bool {
     !SHEETS_2BPP_1.contains(&sheet) && !SHEETS_2BPP_2.contains(&sheet)
+}
+
+fn palette_size(sheet: usize) -> usize {
+    if is_3bpp(sheet) {
+        8
+    } else {
+        4
+    }
 }
 
 fn get_gfx_address(
@@ -471,7 +480,13 @@ fn pixels_to_bpp3_sheet(px_data: &Vec<Vec<u8>>) -> Vec<u8> {
     out
 }
 
-fn load_sheet(bank_table_addr: usize, hi_table_addr: usize, lo_table_addr: usize, romdata: &Vec<u8>, sheet: usize) -> (usize, usize, Vec<Vec<u8>>) {
+fn load_sheet(
+    bank_table_addr: usize,
+    hi_table_addr: usize,
+    lo_table_addr: usize,
+    romdata: &Vec<u8>,
+    sheet: usize,
+) -> (usize, Vec<Vec<u8>>) {
     let sheet_addr = get_gfx_address(
         sheet,
         &romdata,
@@ -479,10 +494,28 @@ fn load_sheet(bank_table_addr: usize, hi_table_addr: usize, lo_table_addr: usize
         hi_table_addr,
         lo_table_addr,
     );
-    let sheet_len = BPP3_SHEET_LEN;
-    let decompressed_sheet = decompress_sheet(&romdata, sheet_addr, sheet_len, true);
-    let sheet_data = bpp3_sheet_to_pixels(&decompressed_sheet);
-    (sheet_addr, sheet_len, sheet_data)
+    let sheet_len = if is_3bpp(sheet) {
+        BPP3_SHEET_LEN
+    } else {
+        BPP2_SHEET_LEN
+    };
+    let decompressed_sheet;
+    if is_compressed(sheet) {
+        decompressed_sheet = decompress_sheet(&romdata, sheet_addr, sheet_len, true);
+    } else {
+        decompressed_sheet = romdata[sheet_addr..sheet_addr + sheet_len]
+            .iter()
+            .cloned()
+            .collect();
+    }
+    let sheet_data;
+    if is_3bpp(sheet) {
+        sheet_data = bpp3_sheet_to_pixels(&decompressed_sheet);
+    } else {
+        // TODO 2bpp
+        sheet_data = vec![]
+    }
+    (sheet_addr, sheet_data)
 }
 
 fn dump_sheet(sheet: usize, sheet_data: &Vec<Vec<u8>>, sheet_addr: usize) {
@@ -512,10 +545,28 @@ fn dump_sheets(
     romdata: &mut Vec<u8>,
     sheet_arg: Option<usize>,
 ) -> () {
-    for sheet in SHEETS_BG_TILES {
-        if sheet_arg.is_none() || sheet_arg.unwrap() == sheet {
-            let (sheet_addr, _, sheet_data) = load_sheet(bank_table_addr, hi_table_addr, lo_table_addr, &romdata, sheet);
+    match sheet_arg {
+        Some(sheet) => {
+            let (sheet_addr, sheet_data) = load_sheet(
+                bank_table_addr,
+                hi_table_addr,
+                lo_table_addr,
+                &romdata,
+                sheet,
+            );
             dump_sheet(sheet, &sheet_data, sheet_addr);
+        }
+        None => {
+            for sheet in 0..SHEETS_MAX {
+                let (sheet_addr, sheet_data) = load_sheet(
+                    bank_table_addr,
+                    hi_table_addr,
+                    lo_table_addr,
+                    &romdata,
+                    sheet,
+                );
+                dump_sheet(sheet, &sheet_data, sheet_addr);
+            }
         }
     }
 }
@@ -530,71 +581,89 @@ fn patch_tile(
     sheet: usize,
     x: usize,
     y: usize,
-    verify: bool,
     sheet_start: usize,
-) {
-    let (_, sheet_len, mut sheet_data) = load_sheet(bank_table_addr, hi_table_addr, lo_table_addr, &romdata, sheet);
-    let png_file = OpenOptions::new()
-        .read(true)
-        .write(false)
-        .open(png_path)
-        .unwrap();
-    let decoder = png::Decoder::new(png_file);
-    let (_, mut reader) = decoder.read_info().unwrap();
-    let first_row = reader.next_row().unwrap().unwrap();
-    let palette: HashMap<(u8, u8, u8), usize> = first_row
-        .iter()
-        .tuples::<(_, _, _)>()
-        .take(PALETTE_SIZE)
-        .enumerate()
-        .map(|(a, (r, g, b))| ((*r, *g, *b), a))
-        .collect();
-    let mut png_y = 0;
-    let mut row = reader.next_row().unwrap();
-    while row.is_some() {
-        let mut png_x = 0;
-        for px in row
-            .unwrap()
-            .iter()
-            .tuples::<(_, _, _)>()
-            .map(|(r, g, b)| (*r, *g, *b))
-        {
-            sheet_data[y + png_y][x + png_x] = *palette.get(&px).unwrap() as u8;
-            png_x += 1;
-        }
-        row = reader.next_row().unwrap();
-        png_y += 1;
-    }
-    let out_sheet = pixels_to_bpp3_sheet(&sheet_data);
-    let compressed_sheet = compress_sheet(&out_sheet, true);
-    if verify {
-        assert_eq!(
-            sheet_data,
-            bpp3_sheet_to_pixels(&decompress_sheet(&compressed_sheet, 0, sheet_len, true))
-        );
-    };
-    romdata.splice(
-        sheet_start..sheet_start + compressed_sheet.len(),
-        compressed_sheet.iter().cloned(),
-    );
-    put_gfx_address(
-        sheet,
-        &mut romdata,
+) -> Result<(), Error> {
+    let (_, mut sheet_data) = load_sheet(
         bank_table_addr,
         hi_table_addr,
         lo_table_addr,
-        sheet_start,
+        &romdata,
+        sheet,
     );
-    let mut file = OpenOptions::new()
-        .read(false)
-        .write(true)
-        .create(true)
-        .open(output_rom_path)
-        .unwrap();
-    file.write(&romdata).unwrap();
+    let png_file = OpenOptions::new().read(true).write(false).open(png_path)?;
+    let decoder = png::Decoder::new(png_file);
+    let (_, mut reader) = decoder.read_info()?;
+    if let Some(first_row) = reader.next_row()? {
+        let palette: HashMap<(u8, u8, u8), usize> = first_row
+            .iter()
+            .tuples::<(_, _, _)>()
+            .take(palette_size(sheet))
+            .enumerate()
+            .map(|(a, (r, g, b))| ((*r, *g, *b), a))
+            .collect();
+        let mut png_y = 0;
+        let mut row = reader.next_row()?;
+        while row.is_some() {
+            let mut png_x = 0;
+            for px in row
+                .unwrap()
+                .iter()
+                .tuples::<(_, _, _)>()
+                .map(|(r, g, b)| (*r, *g, *b))
+            {
+                if let Some(palette_idx) = palette.get(&px) {
+                    sheet_data[y + png_y][x + png_x] = *palette_idx as u8;
+                    png_x += 1;
+                } else {
+                    return Err(format_err!(
+                        "Color {:?} at {},{} not in palette row",
+                        px,
+                        png_x,
+                        png_y
+                    ));
+                }
+            }
+            row = reader.next_row()?;
+            png_y += 1;
+        }
+        let out_sheet;
+        if is_3bpp(sheet) {
+            out_sheet = pixels_to_bpp3_sheet(&sheet_data);
+        } else {
+            // TODO 2bpp
+            out_sheet = vec![];
+        }
+        let compressed_sheet;
+        if is_compressed(sheet) {
+            compressed_sheet = compress_sheet(&out_sheet, true);
+        } else {
+            compressed_sheet = out_sheet;
+        }
+        romdata.splice(
+            sheet_start..sheet_start + compressed_sheet.len(),
+            compressed_sheet.iter().cloned(),
+        );
+        put_gfx_address(
+            sheet,
+            &mut romdata,
+            bank_table_addr,
+            hi_table_addr,
+            lo_table_addr,
+            sheet_start,
+        );
+        let mut file = OpenOptions::new()
+            .read(false)
+            .write(true)
+            .create(true)
+            .open(output_rom_path)?;
+        file.write(&romdata)?;
+        Ok(())
+    } else {
+        Err(format_err!("Empty PNG file"))
+    }
 }
 
-fn main() {
+fn main() -> Result<(), Error> {
     env_logger::init();
 
     let matches = clap_app!(lttp_tilepatch =>
@@ -609,7 +678,6 @@ fn main() {
             (@arg sheet: -s --sheet +required +takes_value "target tile sheet (0-222)")
             (@arg x: -x +required +takes_value "target X coordinate (0-127)")
             (@arg y: -y +required +takes_value "target Y coordinate (0-31)")
-            (@arg verify: -v "verify data compression")
             (@arg expanded_tiles_start: --exp_start "ROM address to start new tilesheets")
             (@arg expanded_tiles_size: --exp_size "space to reserve for each tilesheet")
         )
@@ -623,36 +691,39 @@ fn main() {
     let input_rom_path = matches.value_of("in_ROM").unwrap();
     let bank_table_addr = matches
         .value_of("banktable")
-        .map_or(BANK_TABLE_POINTER, |arg| {
-            usize::from_str_radix(arg.trim_start_matches("0x"), 16).unwrap()
-        });
-    let hi_table_addr = matches.value_of("hitable").map_or(HI_TABLE_POINTER, |arg| {
-        usize::from_str_radix(arg.trim_start_matches("0x"), 16).unwrap()
-    });
-    let lo_table_addr = matches.value_of("lotable").map_or(LO_TABLE_POINTER, |arg| {
-        usize::from_str_radix(arg.trim_start_matches("0x"), 16).unwrap()
-    });
+        .map_or(Ok(BANK_TABLE_POINTER), |arg| {
+            usize::from_str_radix(arg.trim_start_matches("0x"), 16)
+        })?;
+    let hi_table_addr = matches
+        .value_of("hitable")
+        .map_or(Ok(HI_TABLE_POINTER), |arg| {
+            usize::from_str_radix(arg.trim_start_matches("0x"), 16)
+        })?;
+    let lo_table_addr = matches
+        .value_of("lotable")
+        .map_or(Ok(LO_TABLE_POINTER), |arg| {
+            usize::from_str_radix(arg.trim_start_matches("0x"), 16)
+        })?;
 
     let mut file = OpenOptions::new()
         .read(true)
         .write(false)
-        .open(input_rom_path)
-        .unwrap();
+        .open(input_rom_path)?;
     let mut romdata = Vec::new();
-    file.read_to_end(&mut romdata).unwrap();
+    file.read_to_end(&mut romdata)?;
 
     if let Some(patch) = matches.subcommand_matches("patch") {
-        let sheet = usize::from_str(patch.value_of("sheet").unwrap()).unwrap();
+        let sheet = usize::from_str(patch.value_of("sheet").unwrap())?;
         let exp_start = patch
             .value_of("expanded_tiles_start")
-            .map_or(DEFAULT_EXPANDED_TILES_START, |arg| {
-                usize::from_str_radix(arg.trim_start_matches("0x"), 16).unwrap()
-            });
+            .map_or(Ok(DEFAULT_EXPANDED_TILES_START), |arg| {
+                usize::from_str_radix(arg.trim_start_matches("0x"), 16)
+            })?;
         let exp_size = patch
             .value_of("expanded_tiles_size")
-            .map_or(DEFAULT_EXPANDED_TILES_SIZE, |arg| {
-                usize::from_str_radix(arg.trim_start_matches("0x"), 16).unwrap()
-            });
+            .map_or(Ok(DEFAULT_EXPANDED_TILES_SIZE), |arg| {
+                usize::from_str_radix(arg.trim_start_matches("0x"), 16)
+            })?;
         let sheet_start = exp_start + (exp_size * sheet);
 
         patch_tile(
@@ -663,11 +734,10 @@ fn main() {
             patch.value_of("out_ROM").unwrap(),
             patch.value_of("in_png").unwrap(),
             sheet,
-            usize::from_str(patch.value_of("x").unwrap()).unwrap(),
-            usize::from_str(patch.value_of("y").unwrap()).unwrap(),
-            patch.is_present("verify"),
+            usize::from_str(patch.value_of("x").unwrap())?,
+            usize::from_str(patch.value_of("y").unwrap())?,
             sheet_start,
-        );
+        )?;
     }
     if let Some(dump) = matches.subcommand_matches("dump") {
         dump_sheets(
@@ -675,8 +745,8 @@ fn main() {
             hi_table_addr,
             lo_table_addr,
             &mut romdata,
-            dump.value_of("sheet")
-                .map(|arg| usize::from_str(arg).unwrap()),
+            dump.value_of("sheet").map(|arg| usize::from_str(arg)).map_or(Ok(None), |v| v.map(Some))?
         )
     }
+    Ok(())
 }
