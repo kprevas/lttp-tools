@@ -37,10 +37,10 @@ const BPP3_SHEET_LEN: usize = 0x600;
 const BPP2_SHEET_LEN: usize = 0x800;
 
 const _SHEETS_BG_TILES: Range<usize> = 0..113;
-const SHEETS_2BPP_1: Range<usize> = 113..115; // TODO: better name
+const SHEETS_HUD: Range<usize> = 113..115;
 const SHEETS_UNCOMPRESSED_3BPP_SPRITES: Range<usize> = 115..127;
 const _SHEETS_COMPRESSED_3BPP_SPRITES: Range<usize> = 127..218;
-const SHEETS_2BPP_2: Range<usize> = 218..223; // TODO: better name
+const SHEETS_FONTS: Range<usize> = 218..223;
 const SHEETS_MAX: usize = 223;
 
 fn snes_bytes_to_pc(bank: u8, high: u8, low: u8) -> usize {
@@ -68,7 +68,7 @@ fn is_compressed(sheet: usize) -> bool {
 }
 
 fn is_3bpp(sheet: usize) -> bool {
-    !SHEETS_2BPP_1.contains(&sheet) && !SHEETS_2BPP_2.contains(&sheet)
+    !SHEETS_HUD.contains(&sheet) && !SHEETS_FONTS.contains(&sheet)
 }
 
 fn palette_size(sheet: usize) -> usize {
@@ -443,9 +443,42 @@ fn bpp3_sheet_to_pixels(sheet: &Vec<u8>) -> Vec<Vec<u8>> {
     out
 }
 
+fn bpp2_sheet_to_pixels(sheet: &Vec<u8>) -> Vec<Vec<u8>> {
+    let mut out = vec![vec![0; 128]; 64];
+    for tile_y in 0..8 {
+        for tile_x in 0..16 {
+            for px_y in 0..8 {
+                let line = [
+                    sheet[px_y * 2 + tile_x * 16 + tile_y * 256],
+                    sheet[px_y * 2 + tile_x * 16 + tile_y * 256 + 1],
+                ];
+                for px_x in 0..4 {
+                    let mut px_hi = 0;
+                    let mut px_lo = 0;
+                    if line[0] & (1 << (px_x * 2)) > 0 {
+                        px_hi += 1;
+                    }
+                    if line[1] & (1 << (px_x * 2)) > 0 {
+                        px_hi += 2;
+                    }
+                    if line[0] & (1 << (px_x * 2 + 1)) > 0 {
+                        px_lo += 1;
+                    }
+                    if line[1] & (1 << (px_x * 2 + 1)) > 1 {
+                        px_lo += 2;
+                    }
+                    out[tile_y * 8 + px_y][tile_x * 8 + (7 - px_x * 2)] = px_hi;
+                    out[tile_y * 8 + px_y][tile_x * 8 + (7 - (px_x * 2 + 1))] = px_lo;
+                }
+            }
+        }
+    }
+    out
+}
+
 fn pixels_to_bpp3_sheet(px_data: &Vec<Vec<u8>>) -> Vec<u8> {
     let mut out = vec![0; BPP3_SHEET_LEN];
-    for tile_y in 0..4 {
+    for tile_y in 0..8 {
         for tile_x in 0..16 {
             for px_y in 0..8 {
                 let mut line = [0u8, 0u8, 0u8];
@@ -474,6 +507,36 @@ fn pixels_to_bpp3_sheet(px_data: &Vec<Vec<u8>>) -> Vec<u8> {
                 out[px_y * 2 + tile_x * 24 + tile_y * 384] = line[0];
                 out[px_y * 2 + tile_x * 24 + tile_y * 384 + 1] = line[1];
                 out[px_y + tile_x * 24 + tile_y * 384 + 16] = line[2];
+            }
+        }
+    }
+    out
+}
+
+fn pixels_to_bpp2_sheet(px_data: &Vec<Vec<u8>>) -> Vec<u8> {
+    let mut out = vec![0; BPP2_SHEET_LEN];
+    for tile_y in 0..4 {
+        for tile_x in 0..16 {
+            for px_y in 0..8 {
+                let mut line = [0u8, 0u8];
+                for px_x in 0..4 {
+                    let px_hi = px_data[tile_y * 8 + px_y][tile_x * 8 + (7 - px_x * 2)];
+                    let px_lo = px_data[tile_y * 8 + px_y][tile_x * 8 + (7 - (px_x * 2 + 1))];
+                    if px_hi & 1 > 0 {
+                        line[0] |= 1 << (px_x * 2);
+                    }
+                    if px_hi & 2 > 0 {
+                        line[1] |= 1 << (px_x * 2);
+                    }
+                    if px_lo & 1 > 0 {
+                        line[0] |= 1 << (px_x * 2 + 1);
+                    }
+                    if px_lo & 2 > 0 {
+                        line[1] |= 1 << (px_x * 2 + 1);
+                    }
+                    out[px_y * 2 + tile_x * 16 + tile_y * 256] = line[0];
+                    out[px_y * 2 + tile_x * 16 + tile_y * 256 + 1] = line[1];
+                }
             }
         }
     }
@@ -512,8 +575,7 @@ fn load_sheet(
     if is_3bpp(sheet) {
         sheet_data = bpp3_sheet_to_pixels(&decompressed_sheet);
     } else {
-        // TODO 2bpp
-        sheet_data = vec![]
+        sheet_data = bpp2_sheet_to_pixels(&decompressed_sheet);
     }
     (sheet_addr, sheet_data)
 }
@@ -630,8 +692,7 @@ fn patch_tile(
         if is_3bpp(sheet) {
             out_sheet = pixels_to_bpp3_sheet(&sheet_data);
         } else {
-            // TODO 2bpp
-            out_sheet = vec![];
+            out_sheet = pixels_to_bpp2_sheet(&sheet_data);
         }
         let compressed_sheet;
         if is_compressed(sheet) {
@@ -745,7 +806,9 @@ fn main() -> Result<(), Error> {
             hi_table_addr,
             lo_table_addr,
             &mut romdata,
-            dump.value_of("sheet").map(|arg| usize::from_str(arg)).map_or(Ok(None), |v| v.map(Some))?
+            dump.value_of("sheet")
+                .map(|arg| usize::from_str(arg))
+                .map_or(Ok(None), |v| v.map(Some))?,
         )
     }
     Ok(())
