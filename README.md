@@ -78,3 +78,32 @@ By default, the bank locations are read from `0x6790`, `0x6795`, and
 For a ROM with relocated bank locations:
 
     lttp-tilepatch [ROM file] 0x67D0 0x67D5 0x67DA [dump|patch] ... 
+    
+Using Bazel
+-
+
+In your WORKSPACE file:
+
+    load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+    
+    git_repository(
+       name = "lttp_tilepatch",
+       commit = "master",
+       remote = "https://github.com/kprevas/lttp-tilepatch.git",
+    )
+
+BUILD rule to compile an ASM file from a CSV manifest:
+
+    load("@lttp_tilepatch//:rules.bzl", "patched_tilesheet_asm")
+    
+    patched_tilesheet_asm(
+        name = "tilegfx1",
+        manifest_csv = "sheet1_manifest.csv",
+        pngs = [
+            "sheet1_tile1.png",
+            "sheet1_tile2.png",
+            ...
+        ],
+        rom = "lttp.sfc",
+        sheet_num = 1,
+    )
