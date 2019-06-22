@@ -15,8 +15,9 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
-use std::io::BufWriter;
+use std::io::{BufReader, BufWriter};
 use std::ops::Range;
+use std::path::Path;
 use std::str::FromStr;
 
 const CMD_COPY: u8 = 0;
@@ -660,7 +661,7 @@ fn dump_sheets(
 
 fn patch_tile(
     sheet_data: &mut Vec<Vec<u8>>,
-    png_path: &str,
+    png_path: &Path,
     sheet: usize,
     x: usize,
     y: usize,
@@ -703,6 +704,34 @@ fn patch_tile(
     } else {
         Err(Box::from(SimpleError::new("Empty PNG file")))
     }
+}
+
+fn patch_manifest(
+    sheet_data: &mut Vec<Vec<u8>>,
+    manifest_path: &str,
+    sheet: usize,
+) -> Result<(), Box<Error>> {
+    let manifest_path = Path::new(manifest_path);
+    let manifest_file = OpenOptions::new()
+        .read(true)
+        .write(false)
+        .open(manifest_path)?;
+    let parent = manifest_path.parent().unwrap();
+    let reader = BufReader::new(&manifest_file);
+    for line in reader.lines() {
+        let line = line?;
+        if !line.is_empty() {
+            let parts: Vec<&str> = line.split(",").collect();
+            patch_tile(
+                sheet_data,
+                parent.to_path_buf().join(Path::new(parts[0])).as_path(),
+                sheet,
+                usize::from_str(parts[1])?,
+                usize::from_str(parts[2])?,
+            )?;
+        }
+    }
+    Ok(())
 }
 
 fn write_rom(
@@ -779,10 +808,11 @@ fn main() -> Result<(), Box<Error>> {
         (@arg lotable: "Low table address")
         (@subcommand patch =>
             (about: "Patch a single PNG into a tile sheet")
-            (@arg in_png: -p --png +required +takes_value "input PNG file")
             (@arg sheet: -s --sheet +required +takes_value "target tile sheet (0-222)")
-            (@arg x: -x +required +takes_value "target X coordinate (0-127)")
-            (@arg y: -y +required +takes_value "target Y coordinate (0-31)")
+            (@arg in_manifest: -m --manifest +takes_value "CSV-formatted manifest file")
+            (@arg in_png: -p --png +takes_value "input PNG file")
+            (@arg x: -x +takes_value "target X coordinate (0-127)")
+            (@arg y: -y +takes_value "target Y coordinate (0-31)")
             (@arg out_ROM: -o --out +takes_value "output ROM file")
             (@arg out_ASM: -a --asm_file +takes_value "name of ASM file to output containing the patched sheet")
             (@arg asm_module: --asm_module +takes_value "module name to use for the ASM file")
@@ -842,13 +872,17 @@ fn main() -> Result<(), Box<Error>> {
             &romdata,
             sheet,
         );
-        patch_tile(
-            &mut sheet_data,
-            patch.value_of("in_png").unwrap(),
-            sheet,
-            usize::from_str(patch.value_of("x").unwrap())?,
-            usize::from_str(patch.value_of("y").unwrap())?,
-        )?;
+        if let Some(manifest_path) = patch.value_of("in_manifest") {
+            patch_manifest(&mut sheet_data, manifest_path, sheet)?;
+        } else {
+            patch_tile(
+                &mut sheet_data,
+                &Path::new(patch.value_of("in_png").unwrap()),
+                sheet,
+                usize::from_str(patch.value_of("x").unwrap())?,
+                usize::from_str(patch.value_of("y").unwrap())?,
+            )?;
+        }
         let compressed_sheet = compress_sheet_data(sheet, &mut sheet_data);
         if let Some(rom_path) = patch.value_of("out_ROM") {
             write_rom(

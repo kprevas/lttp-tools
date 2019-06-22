@@ -8,8 +8,8 @@ Replace a tile in a ROM
 
     lttp-tilepatch [ROM file] patch \
       -o [output ROM file] \
-      -p [PNG file] \
       -s [sheet number] \
+      -p [PNG file] \
       -x [x position] -y [y position]
       
 The first 7 pixels of the top row of the PNG file is read as the palette
@@ -26,8 +26,8 @@ Replace a tile and output ASM
 
     lttp-tilepatch [ROM file] patch \
       -a [output ASM file] \
-      -p [PNG file] \
       -s [sheet number] \
+      -p [PNG file] \
       -x [x position] -y [y position]
       
 This command writes the single patches tile sheet to an ASM file as `.db`
@@ -40,6 +40,21 @@ respectively.
 The target location output to the ASM file follows the rules described above and
 can likewise be controlled with `--exp_start` and `--exp_size`.
 
+Replace multiple tiles
+-
+
+    lttp-tilepatch [ROM file] patch \
+      -o [output ROM file] \
+      -s [sheet number] \
+      -m [manifest file]
+
+Instead of a single PNG file and a single set of coordinates, you can provide a
+manifest file in CSV format, where each line contains a PNG file name, an X coordinate,
+and a Y coordinate.  Patches are applied in the order listed in the file, so in the
+case of overlapping tiles, the last tile listed will be visible in the overlapping area.
+
+The `-m` argument can also be used when writing ASM files (`-a`).
+
 Dump tile sheets
 -
 
@@ -48,6 +63,11 @@ Dump tile sheets
 Each tile sheet is dumped to `stdout` using an arbitrary palette, which
 can be useful for finding the right sheet.  Your shell must support color
 output for this to look like anything.
+
+    lttp-tilepatch [ROM file] dump \
+      -s [sheet number]
+      
+Individual sheets can also be dumped.
     
 Alternate bank locations
 -
