@@ -589,6 +589,22 @@ fn load_sheet(
     (sheet_addr, sheet_data)
 }
 
+fn compress_sheet_data(sheet: usize, sheet_data: &mut Vec<Vec<u8>>) -> Vec<u8> {
+    let out_sheet;
+    if is_3bpp(sheet) {
+        out_sheet = pixels_to_bpp3_sheet(&sheet_data);
+    } else {
+        out_sheet = pixels_to_bpp2_sheet(&sheet_data);
+    }
+    let compressed_sheet;
+    if is_compressed(sheet) {
+        compressed_sheet = compress_sheet(&out_sheet, true);
+    } else {
+        compressed_sheet = out_sheet;
+    }
+    compressed_sheet
+}
+
 fn dump_sheet(sheet: usize, sheet_data: &Vec<Vec<u8>>, sheet_addr: usize) {
     println!("sheet {} at {:06X}:", sheet, sheet_addr);
     for line in sheet_data {
@@ -643,22 +659,12 @@ fn dump_sheets(
 }
 
 fn patch_tile(
-    bank_table_addr: usize,
-    hi_table_addr: usize,
-    lo_table_addr: usize,
-    romdata: &Vec<u8>,
+    sheet_data: &mut Vec<Vec<u8>>,
     png_path: &str,
     sheet: usize,
     x: usize,
     y: usize,
-) -> Result<Vec<u8>, Box<Error>> {
-    let (_, mut sheet_data) = load_sheet(
-        bank_table_addr,
-        hi_table_addr,
-        lo_table_addr,
-        &romdata,
-        sheet,
-    );
+) -> Result<(), Box<Error>> {
     let png_file = OpenOptions::new().read(true).write(false).open(png_path)?;
     let decoder = png::Decoder::new(png_file);
     let (_, mut reader) = decoder.read_info()?;
@@ -693,19 +699,7 @@ fn patch_tile(
             row = reader.next_row()?;
             png_y += 1;
         }
-        let out_sheet;
-        if is_3bpp(sheet) {
-            out_sheet = pixels_to_bpp3_sheet(&sheet_data);
-        } else {
-            out_sheet = pixels_to_bpp2_sheet(&sheet_data);
-        }
-        let compressed_sheet;
-        if is_compressed(sheet) {
-            compressed_sheet = compress_sheet(&out_sheet, true);
-        } else {
-            compressed_sheet = out_sheet;
-        }
-        Ok(compressed_sheet)
+        Ok(())
     } else {
         Err(Box::from(SimpleError::new("Empty PNG file")))
     }
@@ -841,16 +835,21 @@ fn main() -> Result<(), Box<Error>> {
             })?;
         let sheet_start = exp_start + (exp_size * sheet);
 
-        let patched_sheet = patch_tile(
+        let (_, mut sheet_data) = load_sheet(
             bank_table_addr,
             hi_table_addr,
             lo_table_addr,
             &romdata,
+            sheet,
+        );
+        patch_tile(
+            &mut sheet_data,
             patch.value_of("in_png").unwrap(),
             sheet,
             usize::from_str(patch.value_of("x").unwrap())?,
             usize::from_str(patch.value_of("y").unwrap())?,
         )?;
+        let compressed_sheet = compress_sheet_data(sheet, &mut sheet_data);
         if let Some(rom_path) = patch.value_of("out_ROM") {
             write_rom(
                 bank_table_addr,
@@ -858,14 +857,14 @@ fn main() -> Result<(), Box<Error>> {
                 lo_table_addr,
                 &mut romdata,
                 sheet,
-                &patched_sheet,
+                &compressed_sheet,
                 sheet_start,
                 rom_path,
             )?;
         } else if let Some(asm_path) = patch.value_of("out_ASM") {
             write_asm(
                 sheet,
-                &patched_sheet,
+                &compressed_sheet,
                 sheet_start,
                 asm_path,
                 patch
