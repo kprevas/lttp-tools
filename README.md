@@ -3,7 +3,7 @@ lttp-tilepatch
 
 Replace graphics in an expanded LTTP ROM.
 
-Replace a tile
+Replace a tile in a ROM
 -
 
     lttp-tilepatch [ROM file] patch \
@@ -21,6 +21,24 @@ starting at `0x110000`, with `0x1000` bytes reserved for each sheet.
 These values can be modified using the `--exp_start` and `--exp_size`
 arguments, respectively.
 
+Replace a tile and output ASM
+-
+
+    lttp-tilepatch [ROM file] patch \
+      -a [output ASM file] \
+      -p [PNG file] \
+      -s [sheet number] \
+      -x [x position] -y [y position]
+      
+This command writes the single patches tile sheet to an ASM file as `.db`
+directives for use by the [NSASM assembler](https://github.com/vslashg/nsasm).
+The module name used for the sheet is `gfxTileN` (where N is the sheet number)
+and the label is `gfxData`.  The `--asm_module` and `--asm_label` arguments can
+be used to provide an alternate prefix for the module or an alternate label name,
+respectively.
+
+The target location output to the ASM file follows the rules described above and
+can likewise be controlled with `--exp_start` and `--exp_size`.
 
 Dump tile sheets
 -

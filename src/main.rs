@@ -637,14 +637,12 @@ fn patch_tile(
     bank_table_addr: usize,
     hi_table_addr: usize,
     lo_table_addr: usize,
-    mut romdata: &mut Vec<u8>,
-    output_rom_path: &str,
+    romdata: &Vec<u8>,
     png_path: &str,
     sheet: usize,
     x: usize,
     y: usize,
-    sheet_start: usize,
-) -> Result<(), Box<Error>> {
+) -> Result<Vec<u8>, Box<Error>> {
     let (_, mut sheet_data) = load_sheet(
         bank_table_addr,
         hi_table_addr,
@@ -698,28 +696,41 @@ fn patch_tile(
         } else {
             compressed_sheet = out_sheet;
         }
-        romdata.splice(
-            sheet_start..sheet_start + compressed_sheet.len(),
-            compressed_sheet.iter().cloned(),
-        );
-        put_gfx_address(
-            sheet,
-            &mut romdata,
-            bank_table_addr,
-            hi_table_addr,
-            lo_table_addr,
-            sheet_start,
-        );
-        let mut file = OpenOptions::new()
-            .read(false)
-            .write(true)
-            .create(true)
-            .open(output_rom_path)?;
-        file.write(&romdata)?;
-        Ok(())
+        Ok(compressed_sheet)
     } else {
         Err(Box::from(SimpleError::new("Empty PNG file")))
     }
+}
+
+fn write_rom(
+    bank_table_addr: usize,
+    hi_table_addr: usize,
+    lo_table_addr: usize,
+    mut romdata: &mut Vec<u8>,
+    sheet: usize,
+    sheet_data: &Vec<u8>,
+    sheet_start: usize,
+    output_rom_path: &str,
+) -> Result<(), Box<Error>> {
+    romdata.splice(
+        sheet_start..sheet_start + sheet_data.len(),
+        sheet_data.iter().cloned(),
+    );
+    put_gfx_address(
+        sheet,
+        &mut romdata,
+        bank_table_addr,
+        hi_table_addr,
+        lo_table_addr,
+        sheet_start,
+    );
+    let mut file = OpenOptions::new()
+        .read(false)
+        .write(true)
+        .create(true)
+        .open(output_rom_path)?;
+    file.write(&romdata)?;
+    Ok(())
 }
 
 fn main() -> Result<(), Box<Error>> {
@@ -732,11 +743,14 @@ fn main() -> Result<(), Box<Error>> {
         (@arg lotable: "Low table address")
         (@subcommand patch =>
             (about: "Patch a single PNG into a tile sheet")
-            (@arg out_ROM: -o --out +required +takes_value "output ROM file")
             (@arg in_png: -p --png +required +takes_value "input PNG file")
             (@arg sheet: -s --sheet +required +takes_value "target tile sheet (0-222)")
             (@arg x: -x +required +takes_value "target X coordinate (0-127)")
             (@arg y: -y +required +takes_value "target Y coordinate (0-31)")
+            (@arg out_ROM: -o --out +takes_value "output ROM file")
+            (@arg out_ASM: -a --asm_file +takes_value "name of ASM file to output containing the patched sheet")
+            (@arg asm_module: --asm_module +takes_value "module name to use for the ASM file")
+            (@arg asm_label: --asm_label +takes_value "label prefix to use for the data in the ASM file")
             (@arg expanded_tiles_start: --exp_start "ROM address to start new tilesheets")
             (@arg expanded_tiles_size: --exp_size "space to reserve for each tilesheet")
         )
@@ -785,18 +799,28 @@ fn main() -> Result<(), Box<Error>> {
             })?;
         let sheet_start = exp_start + (exp_size * sheet);
 
-        patch_tile(
+        let patched_sheet = patch_tile(
             bank_table_addr,
             hi_table_addr,
             lo_table_addr,
-            &mut romdata,
-            patch.value_of("out_ROM").unwrap(),
+            &romdata,
             patch.value_of("in_png").unwrap(),
             sheet,
             usize::from_str(patch.value_of("x").unwrap())?,
             usize::from_str(patch.value_of("y").unwrap())?,
-            sheet_start,
         )?;
+        if let Some(rom_path) = patch.value_of("out_ROM") {
+            write_rom(
+                bank_table_addr,
+                hi_table_addr,
+                lo_table_addr,
+                &mut romdata,
+                sheet,
+                &patched_sheet,
+                sheet_start,
+                rom_path,
+            )?;
+        }
     }
     if let Some(dump) = matches.subcommand_matches("dump") {
         dump_sheets(
