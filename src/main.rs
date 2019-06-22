@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
+use std::io::BufWriter;
 use std::ops::Range;
 use std::str::FromStr;
 
@@ -43,6 +44,9 @@ const _SHEETS_COMPRESSED_3BPP_SPRITES: Range<usize> = 127..218;
 const SHEETS_FONTS: Range<usize> = 218..223;
 const SHEETS_MAX: usize = 223;
 
+const DEFAULT_MODULE_PREFIX: &str = "gfxTile";
+const DEFAULT_LABEL: &str = "gfxData";
+
 fn snes_bytes_to_pc(bank: u8, high: u8, low: u8) -> usize {
     let snes_addr = ((bank as u32) << 16) + ((high as u32) << 8) + (low as u32);
     ((snes_addr & 0x7FFF) + ((snes_addr / 2) & 0xFF8000)) as usize
@@ -61,6 +65,11 @@ fn pc_to_snes_bytes(pc_addr: usize) -> [u8; 3] {
         bytes[1] += 0x80;
     }
     bytes
+}
+
+fn pc_to_snes(pc_addr: usize) -> u32 {
+    let bytes = pc_to_snes_bytes(pc_addr);
+    ((bytes[0] as u32) << 16) + ((bytes[1] as u32) << 8) + (bytes[0] as u32)
 }
 
 fn is_compressed(sheet: usize) -> bool {
@@ -416,22 +425,22 @@ fn bpp3_sheet_to_pixels(sheet: &Vec<u8>) -> Vec<Vec<u8>> {
                 for px_x in 0..4 {
                     let mut px_hi = 0;
                     let mut px_lo = 0;
-                    if line[0] & (1 << (px_x * 2)) > 0 {
+                    if line[0] & (1 << (px_x as u8 * 2)) > 0 {
                         px_hi += 1;
                     }
-                    if line[1] & (1 << (px_x * 2)) > 0 {
+                    if line[1] & (1 << (px_x as u8 * 2)) > 0 {
                         px_hi += 2;
                     }
-                    if line[2] & (1 << (px_x * 2)) > 0 {
+                    if line[2] & (1 << (px_x as u8 * 2)) > 0 {
                         px_hi += 4;
                     }
-                    if line[0] & (1 << (px_x * 2 + 1)) > 0 {
+                    if line[0] & (1 << (px_x as u8 * 2 + 1)) > 0 {
                         px_lo += 1;
                     }
-                    if line[1] & (1 << (px_x * 2 + 1)) > 0 {
+                    if line[1] & (1 << (px_x as u8 * 2 + 1)) > 0 {
                         px_lo += 2;
                     }
-                    if line[2] & (1 << (px_x * 2 + 1)) > 0 {
+                    if line[2] & (1 << (px_x as u8 * 2 + 1)) > 0 {
                         px_lo += 4;
                     }
                     out[tile_y * 8 + px_y][tile_x * 8 + (7 - px_x * 2)] = px_hi;
@@ -455,16 +464,16 @@ fn bpp2_sheet_to_pixels(sheet: &Vec<u8>) -> Vec<Vec<u8>> {
                 for px_x in 0..4 {
                     let mut px_hi = 0;
                     let mut px_lo = 0;
-                    if line[0] & (1 << (px_x * 2)) > 0 {
+                    if line[0] & (1 << (px_x as u8 * 2)) > 0 {
                         px_hi += 1;
                     }
-                    if line[1] & (1 << (px_x * 2)) > 0 {
+                    if line[1] & (1 << (px_x as u8 * 2)) > 0 {
                         px_hi += 2;
                     }
-                    if line[0] & (1 << (px_x * 2 + 1)) > 0 {
+                    if line[0] & (1 << (px_x as u8 * 2 + 1)) > 0 {
                         px_lo += 1;
                     }
-                    if line[1] & (1 << (px_x * 2 + 1)) > 1 {
+                    if line[1] & (1 << (px_x as u8 * 2 + 1)) > 1 {
                         px_lo += 2;
                     }
                     out[tile_y * 8 + px_y][tile_x * 8 + (7 - px_x * 2)] = px_hi;
@@ -478,7 +487,7 @@ fn bpp2_sheet_to_pixels(sheet: &Vec<u8>) -> Vec<Vec<u8>> {
 
 fn pixels_to_bpp3_sheet(px_data: &Vec<Vec<u8>>) -> Vec<u8> {
     let mut out = vec![0; BPP3_SHEET_LEN];
-    for tile_y in 0..8 {
+    for tile_y in 0..4 {
         for tile_x in 0..16 {
             for px_y in 0..8 {
                 let mut line = [0u8, 0u8, 0u8];
@@ -486,22 +495,22 @@ fn pixels_to_bpp3_sheet(px_data: &Vec<Vec<u8>>) -> Vec<u8> {
                     let px_hi = px_data[tile_y * 8 + px_y][tile_x * 8 + (7 - px_x * 2)];
                     let px_lo = px_data[tile_y * 8 + px_y][tile_x * 8 + (7 - (px_x * 2 + 1))];
                     if px_hi & 1 > 0 {
-                        line[0] |= 1 << (px_x * 2);
+                        line[0] |= 1 << (px_x as u8 * 2);
                     }
                     if px_hi & 2 > 0 {
-                        line[1] |= 1 << (px_x * 2);
+                        line[1] |= 1 << (px_x as u8 * 2);
                     }
                     if px_hi & 4 > 0 {
-                        line[2] |= 1 << (px_x * 2);
+                        line[2] |= 1 << (px_x as u8 * 2);
                     }
                     if px_lo & 1 > 0 {
-                        line[0] |= 1 << (px_x * 2 + 1);
+                        line[0] |= 1 << (px_x as u8 * 2 + 1);
                     }
                     if px_lo & 2 > 0 {
-                        line[1] |= 1 << (px_x * 2 + 1);
+                        line[1] |= 1 << (px_x as u8 * 2 + 1);
                     }
                     if px_lo & 4 > 0 {
-                        line[2] |= 1 << (px_x * 2 + 1);
+                        line[2] |= 1 << (px_x as u8 * 2 + 1);
                     }
                 }
                 out[px_y * 2 + tile_x * 24 + tile_y * 384] = line[0];
@@ -515,7 +524,7 @@ fn pixels_to_bpp3_sheet(px_data: &Vec<Vec<u8>>) -> Vec<u8> {
 
 fn pixels_to_bpp2_sheet(px_data: &Vec<Vec<u8>>) -> Vec<u8> {
     let mut out = vec![0; BPP2_SHEET_LEN];
-    for tile_y in 0..4 {
+    for tile_y in 0..8 {
         for tile_x in 0..16 {
             for px_y in 0..8 {
                 let mut line = [0u8, 0u8];
@@ -523,16 +532,16 @@ fn pixels_to_bpp2_sheet(px_data: &Vec<Vec<u8>>) -> Vec<u8> {
                     let px_hi = px_data[tile_y * 8 + px_y][tile_x * 8 + (7 - px_x * 2)];
                     let px_lo = px_data[tile_y * 8 + px_y][tile_x * 8 + (7 - (px_x * 2 + 1))];
                     if px_hi & 1 > 0 {
-                        line[0] |= 1 << (px_x * 2);
+                        line[0] |= 1 << (px_x as u8 * 2);
                     }
                     if px_hi & 2 > 0 {
-                        line[1] |= 1 << (px_x * 2);
+                        line[1] |= 1 << (px_x as u8 * 2);
                     }
                     if px_lo & 1 > 0 {
-                        line[0] |= 1 << (px_x * 2 + 1);
+                        line[0] |= 1 << (px_x as u8 * 2 + 1);
                     }
                     if px_lo & 2 > 0 {
-                        line[1] |= 1 << (px_x * 2 + 1);
+                        line[1] |= 1 << (px_x as u8 * 2 + 1);
                     }
                     out[px_y * 2 + tile_x * 16 + tile_y * 256] = line[0];
                     out[px_y * 2 + tile_x * 16 + tile_y * 256 + 1] = line[1];
@@ -733,6 +742,39 @@ fn write_rom(
     Ok(())
 }
 
+fn write_asm(
+    sheet: usize,
+    sheet_data: &Vec<u8>,
+    sheet_start: usize,
+    output_asm_path: &str,
+    asm_module_prefix: &str,
+    asm_label: &str,
+) -> Result<(), Box<Error>> {
+    let file = OpenOptions::new()
+        .read(false)
+        .write(true)
+        .create(true)
+        .open(output_asm_path)?;
+    let mut writer = BufWriter::new(&file);
+    writeln!(
+        &mut writer,
+        "        .module {}{}",
+        asm_module_prefix, sheet
+    )?;
+    writeln!(&mut writer)?;
+    writeln!(&mut writer, "        .org ${:06X}", pc_to_snes(sheet_start))?;
+    writeln!(&mut writer)?;
+    writeln!(&mut writer, "{}:", asm_label)?;
+    for line in &sheet_data.iter().chunks(8) {
+        writeln!(
+            &mut writer,
+            "        .db {}",
+            line.map(|byte| format!("${:02X}", byte)).join(", ")
+        )?;
+    }
+    Ok(())
+}
+
 fn main() -> Result<(), Box<Error>> {
     env_logger::init();
 
@@ -819,6 +861,17 @@ fn main() -> Result<(), Box<Error>> {
                 &patched_sheet,
                 sheet_start,
                 rom_path,
+            )?;
+        } else if let Some(asm_path) = patch.value_of("out_ASM") {
+            write_asm(
+                sheet,
+                &patched_sheet,
+                sheet_start,
+                asm_path,
+                patch
+                    .value_of("asm_module")
+                    .unwrap_or(DEFAULT_MODULE_PREFIX),
+                patch.value_of("asm_label").unwrap_or(DEFAULT_LABEL),
             )?;
         }
     }
