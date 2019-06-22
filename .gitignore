@@ -2,3 +2,4 @@
 **/*.rs.bk
 /.idea/
 /lttp_tilepatch.iml
+/bazel-*

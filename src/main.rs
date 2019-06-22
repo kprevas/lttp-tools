@@ -6,13 +6,13 @@ extern crate log;
 extern crate env_logger;
 extern crate itertools;
 extern crate png;
+extern crate simple_error;
 extern crate termion;
-#[macro_use]
-extern crate failure;
 
-use failure::Error;
 use itertools::Itertools;
+use simple_error::SimpleError;
 use std::collections::HashMap;
+use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::ops::Range;
@@ -644,7 +644,7 @@ fn patch_tile(
     x: usize,
     y: usize,
     sheet_start: usize,
-) -> Result<(), Error> {
+) -> Result<(), Box<Error>> {
     let (_, mut sheet_data) = load_sheet(
         bank_table_addr,
         hi_table_addr,
@@ -677,12 +677,10 @@ fn patch_tile(
                     sheet_data[y + png_y][x + png_x] = *palette_idx as u8;
                     png_x += 1;
                 } else {
-                    return Err(format_err!(
+                    return Err(Box::from(SimpleError::new(format!(
                         "Color {:?} at {},{} not in palette row",
-                        px,
-                        png_x,
-                        png_y
-                    ));
+                        px, png_x, png_y
+                    ))));
                 }
             }
             row = reader.next_row()?;
@@ -720,11 +718,11 @@ fn patch_tile(
         file.write(&romdata)?;
         Ok(())
     } else {
-        Err(format_err!("Empty PNG file"))
+        Err(Box::from(SimpleError::new("Empty PNG file")))
     }
 }
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), Box<Error>> {
     env_logger::init();
 
     let matches = clap_app!(lttp_tilepatch =>
