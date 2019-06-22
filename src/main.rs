@@ -70,7 +70,7 @@ fn pc_to_snes_bytes(pc_addr: usize) -> [u8; 3] {
 
 fn pc_to_snes(pc_addr: usize) -> u32 {
     let bytes = pc_to_snes_bytes(pc_addr);
-    ((bytes[0] as u32) << 16) + ((bytes[1] as u32) << 8) + (bytes[0] as u32)
+    ((bytes[0] as u32) << 16) + ((bytes[1] as u32) << 8) + (bytes[2] as u32)
 }
 
 fn is_compressed(sheet: usize) -> bool {
@@ -711,6 +711,7 @@ fn patch_manifest(
     manifest_path: &str,
     sheet: usize,
 ) -> Result<(), Box<Error>> {
+    info!("patching from manifest {}", manifest_path);
     let manifest_path = Path::new(manifest_path);
     let manifest_file = OpenOptions::new()
         .read(true)
@@ -722,9 +723,11 @@ fn patch_manifest(
         let line = line?;
         if !line.is_empty() {
             let parts: Vec<&str> = line.split(",").collect();
+            let png_path = parent.to_path_buf().join(Path::new(parts[0]));
+            info!("patching tile from {:?}", png_path);
             patch_tile(
                 sheet_data,
-                parent.to_path_buf().join(Path::new(parts[0])).as_path(),
+                png_path.as_path(),
                 sheet,
                 usize::from_str(parts[1])?,
                 usize::from_str(parts[2])?,
@@ -777,6 +780,7 @@ fn write_asm(
         .read(false)
         .write(true)
         .create(true)
+        .truncate(true)
         .open(output_asm_path)?;
     let mut writer = BufWriter::new(&file);
     writeln!(
