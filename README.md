@@ -79,6 +79,21 @@ For a ROM with relocated bank locations:
 
     lttp-tilepatch [ROM file] 0x67D0 0x67D5 0x67DA [dump|patch] ... 
     
+Patching Link's sprites
+-
+
+    lttp-tilepatch [ROM file] patch_link \
+      -o [output ROM file] \
+      -p [PNG file] \
+      -x [x position] -y [y position]
+
+Link's sprites are treated as a single sheet, so `patch_link` does not require the
+`-s` argument.  Other arguments listed above for using a manifest file, outputing
+ASM, etc. work with `patch_link` as well.
+
+If Link's sprites are not at `0x080000` in the ROM, use the `--addr` argument to
+provide the correct location. 
+
 Using Bazel
 -
 

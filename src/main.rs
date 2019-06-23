@@ -9,6 +9,7 @@ extern crate png;
 extern crate simple_error;
 extern crate termion;
 
+use clap::ArgMatches;
 use itertools::Itertools;
 use simple_error::SimpleError;
 use std::collections::HashMap;
@@ -35,6 +36,7 @@ const BANK_TABLE_POINTER: usize = 0x6790;
 const HI_TABLE_POINTER: usize = 0x6795;
 const LO_TABLE_POINTER: usize = 0x679A;
 
+const BPP4_SHEET_LEN: usize = 0x7000;
 const BPP3_SHEET_LEN: usize = 0x600;
 const BPP2_SHEET_LEN: usize = 0x800;
 
@@ -46,6 +48,7 @@ const SHEETS_FONTS: Range<usize> = 218..223;
 const SHEETS_MAX: usize = 223;
 
 const DEFAULT_MODULE_PREFIX: &str = "gfxTile";
+const DEFAULT_LINK_MODULE: &str = "gfxLink";
 const DEFAULT_LABEL: &str = "gfxData";
 
 fn snes_bytes_to_pc(bank: u8, high: u8, low: u8) -> usize {
@@ -413,6 +416,25 @@ fn compress_sheet(sheet_data: &Vec<u8>, swap_copy_cmd: bool) -> Vec<u8> {
     out
 }
 
+fn bpp4_sheet_to_pixels(sheet: &Vec<u8>) -> Vec<Vec<u8>> {
+    let mut out = vec![vec![0; 128]; 448];
+    for tile_y in 0..56 {
+        for tile_x in 0..16 {
+            for byte_pos in 0..32 {
+                let byte = sheet[byte_pos + tile_x * 32 + tile_y * 512];
+                for bit_pos in 0..8 {
+                    if byte & (1 << (7 - bit_pos) as u8) > 0 {
+                        let row = (byte_pos % 16) / 2;
+                        let plane = (byte_pos % 2 + 2 * (byte_pos / 16)) as u8;
+                        out[tile_y * 8 + row][tile_x * 8 + bit_pos] |= 1 << (plane);
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
 fn bpp3_sheet_to_pixels(sheet: &Vec<u8>) -> Vec<Vec<u8>> {
     let mut out = vec![vec![0; 128]; 32];
     for tile_y in 0..4 {
@@ -479,6 +501,24 @@ fn bpp2_sheet_to_pixels(sheet: &Vec<u8>) -> Vec<Vec<u8>> {
                     }
                     out[tile_y * 8 + px_y][tile_x * 8 + (7 - px_x * 2)] = px_hi;
                     out[tile_y * 8 + px_y][tile_x * 8 + (7 - (px_x * 2 + 1))] = px_lo;
+                }
+            }
+        }
+    }
+    out
+}
+
+fn pixels_to_bpp4_sheet(px_data: &Vec<Vec<u8>>) -> Vec<u8> {
+    let mut out = vec![0; BPP4_SHEET_LEN];
+    for tile_y in 0..56 {
+        for tile_x in 0..16 {
+            for byte_pos in 0..32 {
+                let row = (byte_pos % 16) / 2;
+                let plane = (byte_pos % 2 + 2 * (byte_pos / 16)) as u8;
+                for bit_pos in 0..8 {
+                    if px_data[tile_y * 8 + row][tile_x * 8 + bit_pos] & (1 << plane) > 0 {
+                        out[byte_pos + tile_x * 32 + tile_y * 512] |= 1 << (7 - bit_pos) as u8;
+                    }
                 }
             }
         }
@@ -572,33 +612,49 @@ fn load_sheet(
     } else {
         BPP2_SHEET_LEN
     };
+    load_sheet_raw(
+        romdata,
+        sheet_addr,
+        if is_3bpp(sheet) { 3 } else { 2 },
+        is_compressed(sheet),
+        sheet_len,
+    )
+}
+
+fn load_sheet_raw(
+    romdata: &Vec<u8>,
+    sheet_addr: usize,
+    bpp: usize,
+    compressed: bool,
+    sheet_len: usize,
+) -> (usize, Vec<Vec<u8>>) {
     let decompressed_sheet;
-    if is_compressed(sheet) {
-        decompressed_sheet = decompress_sheet(&romdata, sheet_addr, sheet_len, true);
+    if compressed {
+        decompressed_sheet = decompress_sheet(romdata, sheet_addr, sheet_len, true);
     } else {
         decompressed_sheet = romdata[sheet_addr..sheet_addr + sheet_len]
             .iter()
             .cloned()
             .collect();
     }
-    let sheet_data;
-    if is_3bpp(sheet) {
-        sheet_data = bpp3_sheet_to_pixels(&decompressed_sheet);
-    } else {
-        sheet_data = bpp2_sheet_to_pixels(&decompressed_sheet);
-    }
+    let sheet_data = match bpp {
+        2 => bpp2_sheet_to_pixels(&decompressed_sheet),
+        3 => bpp3_sheet_to_pixels(&decompressed_sheet),
+        4 => bpp4_sheet_to_pixels(&decompressed_sheet),
+        _ => panic!(),
+    };
     (sheet_addr, sheet_data)
 }
 
-fn compress_sheet_data(sheet: usize, sheet_data: &mut Vec<Vec<u8>>) -> Vec<u8> {
-    let out_sheet;
-    if is_3bpp(sheet) {
-        out_sheet = pixels_to_bpp3_sheet(&sheet_data);
-    } else {
-        out_sheet = pixels_to_bpp2_sheet(&sheet_data);
-    }
+fn compress_sheet_data(bpp: usize, compressed: bool, sheet_data: &mut Vec<Vec<u8>>) -> Vec<u8> {
+    let out_sheet = match bpp {
+        2 => pixels_to_bpp2_sheet(&sheet_data),
+        3 => pixels_to_bpp3_sheet(&sheet_data),
+        4 => pixels_to_bpp4_sheet(&sheet_data),
+        _ => panic!(),
+    };
     let compressed_sheet;
-    if is_compressed(sheet) {
+    if compressed {
         compressed_sheet = compress_sheet(&out_sheet, true);
     } else {
         compressed_sheet = out_sheet;
@@ -619,6 +675,14 @@ fn dump_sheet(sheet: usize, sheet_data: &Vec<Vec<u8>>, sheet_addr: usize) {
                 5 => print!("{}█", termion::color::Fg(termion::color::Magenta)),
                 6 => print!("{}█", termion::color::Fg(termion::color::Cyan)),
                 7 => print!("{}█", termion::color::Fg(termion::color::White)),
+                8 => print!("{}█", termion::color::Fg(termion::color::LightBlack)),
+                9 => print!("{}█", termion::color::Fg(termion::color::LightRed)),
+                10 => print!("{}█", termion::color::Fg(termion::color::LightBlue)),
+                11 => print!("{}█", termion::color::Fg(termion::color::LightGreen)),
+                12 => print!("{}█", termion::color::Fg(termion::color::LightYellow)),
+                13 => print!("{}█", termion::color::Fg(termion::color::LightMagenta)),
+                14 => print!("{}█", termion::color::Fg(termion::color::LightCyan)),
+                15 => print!("{}█", termion::color::Fg(termion::color::LightWhite)),
                 _ => {}
             };
         }
@@ -662,7 +726,7 @@ fn dump_sheets(
 fn patch_tile(
     sheet_data: &mut Vec<Vec<u8>>,
     png_path: &Path,
-    sheet: usize,
+    palette_size: usize,
     x: usize,
     y: usize,
 ) -> Result<(), Box<Error>> {
@@ -673,7 +737,7 @@ fn patch_tile(
         let palette: HashMap<(u8, u8, u8), usize> = first_row
             .iter()
             .tuples::<(_, _, _)>()
-            .take(palette_size(sheet))
+            .take(palette_size)
             .enumerate()
             .map(|(a, (r, g, b))| ((*r, *g, *b), a))
             .collect();
@@ -709,7 +773,7 @@ fn patch_tile(
 fn patch_manifest(
     sheet_data: &mut Vec<Vec<u8>>,
     manifest_path: &str,
-    sheet: usize,
+    palette_size: usize,
 ) -> Result<(), Box<Error>> {
     info!("patching from manifest {}", manifest_path);
     let manifest_path = Path::new(manifest_path);
@@ -728,7 +792,7 @@ fn patch_manifest(
             patch_tile(
                 sheet_data,
                 png_path.as_path(),
-                sheet,
+                palette_size,
                 usize::from_str(parts[1])?,
                 usize::from_str(parts[2])?,
             )?;
@@ -738,11 +802,7 @@ fn patch_manifest(
 }
 
 fn write_rom(
-    bank_table_addr: usize,
-    hi_table_addr: usize,
-    lo_table_addr: usize,
-    mut romdata: &mut Vec<u8>,
-    sheet: usize,
+    romdata: &mut Vec<u8>,
     sheet_data: &Vec<u8>,
     sheet_start: usize,
     output_rom_path: &str,
@@ -750,14 +810,6 @@ fn write_rom(
     romdata.splice(
         sheet_start..sheet_start + sheet_data.len(),
         sheet_data.iter().cloned(),
-    );
-    put_gfx_address(
-        sheet,
-        &mut romdata,
-        bank_table_addr,
-        hi_table_addr,
-        lo_table_addr,
-        sheet_start,
     );
     let mut file = OpenOptions::new()
         .read(false)
@@ -769,11 +821,10 @@ fn write_rom(
 }
 
 fn write_asm(
-    sheet: usize,
     sheet_data: &Vec<u8>,
     sheet_start: usize,
     output_asm_path: &str,
-    asm_module_prefix: &str,
+    asm_module: &str,
     asm_label: &str,
 ) -> Result<(), Box<Error>> {
     let file = OpenOptions::new()
@@ -783,11 +834,7 @@ fn write_asm(
         .truncate(true)
         .open(output_asm_path)?;
     let mut writer = BufWriter::new(&file);
-    writeln!(
-        &mut writer,
-        "        .module {}{}",
-        asm_module_prefix, sheet
-    )?;
+    writeln!(&mut writer, "        .module {}", asm_module)?;
     writeln!(&mut writer)?;
     writeln!(&mut writer, "        .org ${:06X}", pc_to_snes(sheet_start))?;
     writeln!(&mut writer)?;
@@ -802,6 +849,12 @@ fn write_asm(
     Ok(())
 }
 
+fn parse_hex_arg(arg_matches: &ArgMatches, arg: &str, default: usize) -> Result<usize, Box<Error>> {
+    Ok(arg_matches.value_of(arg).map_or(Ok(default), |arg| {
+        usize::from_str_radix(arg.trim_start_matches("0x"), 16)
+    })?)
+}
+
 fn main() -> Result<(), Box<Error>> {
     env_logger::init();
 
@@ -811,12 +864,12 @@ fn main() -> Result<(), Box<Error>> {
         (@arg hitable: "High table address")
         (@arg lotable: "Low table address")
         (@subcommand patch =>
-            (about: "Patch a single PNG into a tile sheet")
+            (about: "Patch PNGs into a tile sheet")
             (@arg sheet: -s --sheet +required +takes_value "target tile sheet (0-222)")
             (@arg in_manifest: -m --manifest +takes_value "CSV-formatted manifest file")
             (@arg in_png: -p --png +takes_value "input PNG file")
-            (@arg x: -x +takes_value "target X coordinate (0-127)")
-            (@arg y: -y +takes_value "target Y coordinate (0-31)")
+            (@arg x: -x +takes_value "target X coordinate")
+            (@arg y: -y +takes_value "target Y coordinate")
             (@arg out_ROM: -o --out +takes_value "output ROM file")
             (@arg out_ASM: -a --asm_file +takes_value "name of ASM file to output containing the patched sheet")
             (@arg asm_module: --asm_module +takes_value "module name to use for the ASM file")
@@ -824,29 +877,36 @@ fn main() -> Result<(), Box<Error>> {
             (@arg expanded_tiles_start: --exp_start "ROM address to start new tilesheets")
             (@arg expanded_tiles_size: --exp_size "space to reserve for each tilesheet")
         )
+        (@subcommand patch_link =>
+            (about: "Patch PNGs into Link's sprite sheet")
+            (@arg in_manifest: -m --manifest +takes_value "CSV-formatted manifest file")
+            (@arg in_png: -p --png +takes_value "input PNG file")
+            (@arg x: -x +takes_value "target X coordinate")
+            (@arg y: -y +takes_value "target Y coordinate")
+            (@arg out_ROM: -o --out +takes_value "output ROM file")
+            (@arg out_ASM: -a --asm_file +takes_value "name of ASM file to output containing the patched sheet")
+            (@arg asm_module: --asm_module +takes_value "module name to use for the ASM file")
+            (@arg asm_label: --asm_label +takes_value "label prefix to use for the data in the ASM file")
+            (@arg sheet_addr: --addr +takes_value "address of sprite sheet")
+        )
         (@subcommand dump =>
             (about: "Dump all tile sheets to the console")
             (@arg sheet: -s --sheet +takes_value "target tile sheet (0-222)")
         )
+        (@subcommand dump_raw =>
+            (about: "Dumps tile sheet from a specific location")
+            (@arg sheet_addr: -a +required +takes_value "address to look for tile data")
+            (@arg sheet_len: -l +required +takes_value "length of sheet data")
+            (@arg uncompressed: --uncompressed "don't try to decompress data")
+            (@arg bpp: --bpp +required +takes_value "bits per pixel")
+        )
     )
-    .get_matches();
+        .get_matches();
 
     let input_rom_path = matches.value_of("in_ROM").unwrap();
-    let bank_table_addr = matches
-        .value_of("banktable")
-        .map_or(Ok(BANK_TABLE_POINTER), |arg| {
-            usize::from_str_radix(arg.trim_start_matches("0x"), 16)
-        })?;
-    let hi_table_addr = matches
-        .value_of("hitable")
-        .map_or(Ok(HI_TABLE_POINTER), |arg| {
-            usize::from_str_radix(arg.trim_start_matches("0x"), 16)
-        })?;
-    let lo_table_addr = matches
-        .value_of("lotable")
-        .map_or(Ok(LO_TABLE_POINTER), |arg| {
-            usize::from_str_radix(arg.trim_start_matches("0x"), 16)
-        })?;
+    let bank_table_addr = parse_hex_arg(&matches, "banktable", BANK_TABLE_POINTER)?;
+    let hi_table_addr = parse_hex_arg(&matches, "hitable", HI_TABLE_POINTER)?;
+    let lo_table_addr = parse_hex_arg(&matches, "lotable", LO_TABLE_POINTER)?;
 
     let mut file = OpenOptions::new()
         .read(true)
@@ -857,16 +917,9 @@ fn main() -> Result<(), Box<Error>> {
 
     if let Some(patch) = matches.subcommand_matches("patch") {
         let sheet = usize::from_str(patch.value_of("sheet").unwrap())?;
-        let exp_start = patch
-            .value_of("expanded_tiles_start")
-            .map_or(Ok(DEFAULT_EXPANDED_TILES_START), |arg| {
-                usize::from_str_radix(arg.trim_start_matches("0x"), 16)
-            })?;
-        let exp_size = patch
-            .value_of("expanded_tiles_size")
-            .map_or(Ok(DEFAULT_EXPANDED_TILES_SIZE), |arg| {
-                usize::from_str_radix(arg.trim_start_matches("0x"), 16)
-            })?;
+        let exp_start =
+            parse_hex_arg(&patch, "expanded_tiles_start", DEFAULT_EXPANDED_TILES_START)?;
+        let exp_size = parse_hex_arg(&patch, "expanded_tiles_size", DEFAULT_EXPANDED_TILES_SIZE)?;
         let sheet_start = exp_start + (exp_size * sheet);
 
         let (_, mut sheet_data) = load_sheet(
@@ -877,38 +930,74 @@ fn main() -> Result<(), Box<Error>> {
             sheet,
         );
         if let Some(manifest_path) = patch.value_of("in_manifest") {
-            patch_manifest(&mut sheet_data, manifest_path, sheet)?;
+            patch_manifest(&mut sheet_data, manifest_path, palette_size(sheet))?;
         } else {
             patch_tile(
                 &mut sheet_data,
                 &Path::new(patch.value_of("in_png").unwrap()),
-                sheet,
+                palette_size(sheet),
                 usize::from_str(patch.value_of("x").unwrap())?,
                 usize::from_str(patch.value_of("y").unwrap())?,
             )?;
         }
-        let compressed_sheet = compress_sheet_data(sheet, &mut sheet_data);
+        let compressed_sheet = compress_sheet_data(
+            if is_3bpp(sheet) { 3 } else { 2 },
+            is_compressed(sheet),
+            &mut sheet_data,
+        );
         if let Some(rom_path) = patch.value_of("out_ROM") {
-            write_rom(
+            put_gfx_address(
+                sheet,
+                &mut romdata,
                 bank_table_addr,
                 hi_table_addr,
                 lo_table_addr,
-                &mut romdata,
-                sheet,
-                &compressed_sheet,
                 sheet_start,
-                rom_path,
-            )?;
+            );
+            write_rom(&mut romdata, &compressed_sheet, sheet_start, rom_path)?;
         } else if let Some(asm_path) = patch.value_of("out_ASM") {
             write_asm(
-                sheet,
                 &compressed_sheet,
                 sheet_start,
                 asm_path,
-                patch
-                    .value_of("asm_module")
-                    .unwrap_or(DEFAULT_MODULE_PREFIX),
+                &format!(
+                    "{}{}",
+                    patch
+                        .value_of("asm_module")
+                        .unwrap_or(DEFAULT_MODULE_PREFIX),
+                    sheet
+                ),
                 patch.value_of("asm_label").unwrap_or(DEFAULT_LABEL),
+            )?;
+        }
+    }
+    if let Some(patch_link) = matches.subcommand_matches("patch_link") {
+        let sheet_start = parse_hex_arg(&patch_link, "sheet_addr", 0x080000)?;
+
+        let (_, mut sheet_data) = load_sheet_raw(&romdata, sheet_start, 4, false, BPP4_SHEET_LEN);
+        if let Some(manifest_path) = patch_link.value_of("in_manifest") {
+            patch_manifest(&mut sheet_data, manifest_path, 16)?;
+        } else {
+            patch_tile(
+                &mut sheet_data,
+                &Path::new(patch_link.value_of("in_png").unwrap()),
+                16,
+                usize::from_str(patch_link.value_of("x").unwrap())?,
+                usize::from_str(patch_link.value_of("y").unwrap())?,
+            )?;
+        }
+        let compressed_sheet = compress_sheet_data(4, false, &mut sheet_data);
+        if let Some(rom_path) = patch_link.value_of("out_ROM") {
+            write_rom(&mut romdata, &compressed_sheet, sheet_start, rom_path)?;
+        } else if let Some(asm_path) = patch_link.value_of("out_ASM") {
+            write_asm(
+                &compressed_sheet,
+                sheet_start,
+                asm_path,
+                patch_link
+                    .value_of("asm_module")
+                    .unwrap_or(DEFAULT_LINK_MODULE),
+                patch_link.value_of("asm_label").unwrap_or(DEFAULT_LABEL),
             )?;
         }
     }
@@ -922,6 +1011,16 @@ fn main() -> Result<(), Box<Error>> {
                 .map(|arg| usize::from_str(arg))
                 .map_or(Ok(None), |v| v.map(Some))?,
         )
+    }
+    if let Some(dump_raw) = matches.subcommand_matches("dump_raw") {
+        let (sheet_addr, sheet_data) = load_sheet_raw(
+            &romdata,
+            parse_hex_arg(dump_raw, "sheet_addr", 0)?,
+            usize::from_str(dump_raw.value_of("bpp").unwrap()).unwrap(),
+            !dump_raw.is_present("uncompressed"),
+            parse_hex_arg(dump_raw, "sheet_len", BPP3_SHEET_LEN)?,
+        );
+        dump_sheet(0, &sheet_data, sheet_addr);
     }
     Ok(())
 }
