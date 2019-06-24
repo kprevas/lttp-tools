@@ -5,8 +5,7 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 git_repository(
     name = "io_bazel_rules_rust",
     commit = "master",
-    # TODO: point back at bazelbuild once https://github.com/bazelbuild/rules_rust/pull/236 goes in
-    remote = "https://github.com/kprevas/rules_rust.git",
+    remote = "https://github.com/bazelbuild/rules_rust.git",
 )
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
