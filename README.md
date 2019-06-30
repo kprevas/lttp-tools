@@ -69,15 +69,17 @@ output for this to look like anything.
       
 Individual sheets can also be dumped.
     
-Alternate bank locations
+Alternate tile sheet locations
 -
 
-By default, the bank locations are read from `0x6790`, `0x6795`, and
-`0x679A` in the ROM.
+By default, the pointers to each tile sheet are read from the pointer tables
+at SNES addresses `0xCF80` (bank numbers), `0xD05F` (high bytes), and `0xD13E`
+(low bytes).
 
-For a ROM with relocated bank locations:
+For a ROM with relocated pointer tables, you can provide the SNES addresses
+for the pointer tables as follows:
 
-    lttp-tilepatch [ROM file] 0x67D0 0x67D5 0x67DA [dump|patch] ... 
+    lttp-tilepatch [ROM file] 0xCFE0 0xD0AF 0xD19E [dump|patch] ... 
     
 Patching Link's sprites
 -

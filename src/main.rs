@@ -32,9 +32,9 @@ const MAX_COPY_EXISTING_LEN: usize = 100;
 const DEFAULT_EXPANDED_TILES_START: usize = 0x110000;
 const DEFAULT_EXPANDED_TILES_SIZE: usize = 0x1000;
 
-const BANK_TABLE_POINTER: usize = 0x6790;
-const HI_TABLE_POINTER: usize = 0x6795;
-const LO_TABLE_POINTER: usize = 0x679A;
+const BANK_TABLE_SNES_ADDR: usize = 0xCF80;
+const HI_TABLE_SNES_ADDR: usize = 0xD05F;
+const LO_TABLE_SNES_ADDR: usize = 0xD13E;
 
 const BPP4_SHEET_LEN: usize = 0x7000;
 const BPP3_SHEET_LEN: usize = 0x600;
@@ -53,6 +53,10 @@ const DEFAULT_LABEL: &str = "gfxData";
 
 fn snes_bytes_to_pc(bank: u8, high: u8, low: u8) -> usize {
     let snes_addr = ((bank as u32) << 16) + ((high as u32) << 8) + (low as u32);
+    snes_to_pc(snes_addr)
+}
+
+fn snes_to_pc(snes_addr: u32) -> usize {
     ((snes_addr & 0x7FFF) + ((snes_addr / 2) & 0xFF8000)) as usize
 }
 
@@ -95,33 +99,28 @@ fn palette_size(sheet: usize) -> usize {
 fn get_gfx_address(
     i: usize,
     romdata: &Vec<u8>,
-    bank_table_addr: usize,
-    hi_table_addr: usize,
-    lo_table_addr: usize,
+    bank_table_addr: u32,
+    hi_table_addr: u32,
+    lo_table_addr: u32,
 ) -> usize {
     snes_bytes_to_pc(
-        romdata[snes_bytes_to_pc(0, romdata[bank_table_addr + 1], romdata[bank_table_addr]) + i]
-            as u8,
-        romdata[snes_bytes_to_pc(0, romdata[hi_table_addr + 1], romdata[hi_table_addr]) + i] as u8,
-        romdata[snes_bytes_to_pc(0, romdata[lo_table_addr + 1], romdata[lo_table_addr]) + i] as u8,
+        romdata[snes_to_pc(bank_table_addr) + i] as u8,
+        romdata[snes_to_pc(hi_table_addr) + i] as u8,
+        romdata[snes_to_pc(lo_table_addr) + i] as u8,
     )
 }
 
 fn put_gfx_address(
     i: usize,
     romdata: &mut Vec<u8>,
-    bank_table_addr: usize,
-    hi_table_addr: usize,
-    lo_table_addr: usize,
+    bank_table_addr: u32,
+    hi_table_addr: u32,
+    lo_table_addr: u32,
     addr: usize,
 ) {
-    let bytes = pc_to_snes_bytes(addr);
-    let bank_addr = snes_bytes_to_pc(0, romdata[bank_table_addr + 1], romdata[bank_table_addr]);
-    let hi_addr = snes_bytes_to_pc(0, romdata[hi_table_addr + 1], romdata[hi_table_addr]);
-    let lo_addr = snes_bytes_to_pc(0, romdata[lo_table_addr + 1], romdata[lo_table_addr]);
-    romdata[bank_addr + i] = bytes[0];
-    romdata[hi_addr + i] = bytes[1];
-    romdata[lo_addr + i] = bytes[2];
+    romdata[snes_to_pc(bank_table_addr) + i] = bytes[0];
+    romdata[snes_to_pc(hi_table_addr) + i] = bytes[1];
+    romdata[snes_to_pc(lo_table_addr) + i] = bytes[2];
 }
 
 fn decompress_sheet(
@@ -594,9 +593,9 @@ fn pixels_to_bpp2_sheet(px_data: &Vec<Vec<u8>>) -> Vec<u8> {
 }
 
 fn load_sheet(
-    bank_table_addr: usize,
-    hi_table_addr: usize,
-    lo_table_addr: usize,
+    bank_table_addr: u32,
+    hi_table_addr: u32,
+    lo_table_addr: u32,
     romdata: &Vec<u8>,
     sheet: usize,
 ) -> (usize, Vec<Vec<u8>>) {
@@ -691,9 +690,9 @@ fn dump_sheet(sheet: usize, sheet_data: &Vec<Vec<u8>>, sheet_addr: usize) {
 }
 
 fn dump_sheets(
-    bank_table_addr: usize,
-    hi_table_addr: usize,
-    lo_table_addr: usize,
+    bank_table_addr: u32,
+    hi_table_addr: u32,
+    lo_table_addr: u32,
     romdata: &mut Vec<u8>,
     sheet_arg: Option<usize>,
 ) -> () {
@@ -904,9 +903,9 @@ fn main() -> Result<(), Box<Error>> {
         .get_matches();
 
     let input_rom_path = matches.value_of("in_ROM").unwrap();
-    let bank_table_addr = parse_hex_arg(&matches, "banktable", BANK_TABLE_POINTER)?;
-    let hi_table_addr = parse_hex_arg(&matches, "hitable", HI_TABLE_POINTER)?;
-    let lo_table_addr = parse_hex_arg(&matches, "lotable", LO_TABLE_POINTER)?;
+    let bank_table_addr = parse_hex_arg(&matches, "banktable", BANK_TABLE_SNES_ADDR)? as u32;
+    let hi_table_addr = parse_hex_arg(&matches, "hitable", HI_TABLE_SNES_ADDR)? as u32;
+    let lo_table_addr = parse_hex_arg(&matches, "lotable", LO_TABLE_SNES_ADDR)? as u32;
 
     let mut file = OpenOptions::new()
         .read(true)
