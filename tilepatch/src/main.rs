@@ -118,6 +118,7 @@ fn put_gfx_address(
     lo_table_addr: u32,
     addr: usize,
 ) {
+    let bytes = pc_to_snes_bytes(addr);
     romdata[snes_to_pc(bank_table_addr) + i] = bytes[0];
     romdata[snes_to_pc(hi_table_addr) + i] = bytes[1];
     romdata[snes_to_pc(lo_table_addr) + i] = bytes[2];
