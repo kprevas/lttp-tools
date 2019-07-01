@@ -104,14 +104,14 @@ In your WORKSPACE file:
     load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
     
     git_repository(
-       name = "lttp_tilepatch",
+       name = "lttp_tools",
        commit = "master",
-       remote = "https://github.com/kprevas/lttp-tilepatch.git",
+       remote = "https://github.com/kprevas/lttp-tools.git",
     )
 
 BUILD rule to compile an ASM file from a CSV manifest:
 
-    load("@lttp_tilepatch//:rules.bzl", "patched_tilesheet_asm")
+    load("@lttp_tools//:rules.bzl", "patched_tilesheet_asm")
     
     patched_tilesheet_asm(
         name = "tilegfx1",
