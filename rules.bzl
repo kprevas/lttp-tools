@@ -14,9 +14,9 @@ def patched_tilesheet_asm(
     native.genrule(
         name = name,
         srcs = [rom, manifest_csv] + pngs,
-        tools = ["//:lttp_tilepatch"],
+        tools = ["//tilepatch:lttp_tilepatch"],
         outs = [name + ".asm"],
-        cmd = "$(location //:lttp_tilepatch) $(location %s) %s %s %s patch -s %s -m $(location %s) -a $@ %s %s" %
+        cmd = "$(location //tilepatch:lttp_tilepatch) $(location %s) %s %s %s patch -s %s -m $(location %s) -a $@ %s %s" %
               (
                   rom,
                   bank_table_addr,
@@ -43,9 +43,9 @@ def patched_link_sprites_asm(
     native.genrule(
         name = name,
         srcs = [rom, manifest_csv] + pngs,
-        tools = ["//:lttp_tilepatch"],
+        tools = ["//tilepatch:lttp_tilepatch"],
         outs = [name + ".asm"],
-        cmd = "$(location //:lttp_tilepatch) $(location %s) patch_link -m $(location %s) -a $@ %s %s %s" %
+        cmd = "$(location //tilepatch:lttp_tilepatch) $(location %s) patch_link -m $(location %s) -a $@ %s %s %s" %
               (
                   rom,
                   manifest_csv,

@@ -21,6 +21,6 @@ bazel_version(name = "bazel_version")
 load("@io_bazel_rules_rust//rust:repositories.bzl", "rust_repositories")
 rust_repositories()
 
-load("//cargo:crates.bzl", "raze_fetch_remote_crates")
+load("//tilepatch/cargo:crates.bzl", tilepatch_fetch_remote_crates = "raze_fetch_remote_crates")
 
-raze_fetch_remote_crates()
+tilepatch_fetch_remote_crates()
