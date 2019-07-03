@@ -54,3 +54,23 @@ def patched_link_sprites_asm(
                   asm_label_arg,
               ),
     )
+
+def text_asm(
+        name,
+        src,
+        asm_module = "",
+        asm_label = ""):
+    asm_module_arg = "--asm_module %s" % asm_module if asm_module else ""
+    asm_label_arg = "--asm_label %s" % asm_label if asm_label else ""
+    native.genrule(
+        name = name,
+        srcs = [src],
+        tools = ["//textconvert:lttp_textconvert"],
+        outs = [name + ".asm"],
+        cmd = "($location //textconvert:lttp_textconvert) $(location %s) $@ %s %s" %
+                (
+                    src,
+                    asm_module_arg,
+                    asm_label_arg,
+                ),
+    )

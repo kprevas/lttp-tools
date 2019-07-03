@@ -1,0 +1,12 @@
+[package]
+name = "textconvert"
+version = "0.1.0"
+authors = ["Gus Prevas <kprevas@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+
+[raze]
+workspace_path = "//textconvert/cargo"
+genmode = "Remote"
+target = "x86_64-unknown-linux-gnu"

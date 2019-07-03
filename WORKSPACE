@@ -1,4 +1,4 @@
-workspace(name = "lttp_tilepatch")
+workspace(name = "lttp_tools")
 
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
@@ -24,3 +24,7 @@ rust_repositories()
 load("//tilepatch/cargo:crates.bzl", tilepatch_fetch_remote_crates = "raze_fetch_remote_crates")
 
 tilepatch_fetch_remote_crates()
+
+load("//textconvert/cargo:crates.bzl", textconvert_fetch_remote_crates = "raze_fetch_remote_crates")
+
+textconvert_fetch_remote_crates()
