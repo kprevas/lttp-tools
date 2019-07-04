@@ -1,0 +1,77 @@
+[
+  {
+    "lines": [
+      "{NOBORDER}",
+      "{SPEED6}",
+      "I'm in the castle basement."
+    ]
+  },
+  {
+    "lines": [
+      "このメッセ-ジはニホンゴでそのまま"
+    ]
+  },
+  {
+    "lines": [
+      "{BOTTOM}",
+      "Sahasrahla, I am. You would do well to find the 3 pendants from the 3 dungeons in the Light World.",
+      "Understand?",
+      "  ≥ yes",
+      "    no",
+      "{CHOICE}"
+    ]
+  },
+  {
+    "lines": [
+      "→ East Palace",
+      "",
+      "← Castle"
+    ]
+  },
+  {
+    "lines": [
+      "%%^= %==%",
+      " ^ =%^=",
+      "==%= ^^%^"
+    ]
+  },
+  {
+    "lines": [
+      "Your time was",
+      "ᚎᚍ min ᚌᚋ sec."
+    ],
+    "asmLabel": "timeResult"
+  },
+  {
+    "lines": [
+      "{INTRO}",
+      " Episode  III",
+      "{PAUSE3}",
+      " A Link to",
+      "   the Past",
+      "{PAUSE3}",
+      "  Randomizer",
+      "{PAUSE3}",
+      "After mostly disregarding what happened in the first two games.",
+      "{PAUSE3}",
+      "Link awakens to his uncle leaving the house.",
+      "{PAUSE3}",
+      "He just runs out the door,",
+      "{PAUSE3}",
+      "into the rainy night.",
+      "{PAUSE3}",
+      "{CHANGEPIC}",
+      "Ganon has moved around all the items in Hyrule.",
+      "{PAUSE7}",
+      "You will have to find all the items necessary to beat Ganon.",
+      "{PAUSE7}",
+      "This is your chance to be a hero.",
+      "{PAUSE3}",
+      "{CHANGEPIC}",
+      "You must get the 7 crystals to beat Ganon.",
+      "{PAUSE9}",
+      "{CHANGEPIC}"
+    ],
+    "pause": false
+  }
+]

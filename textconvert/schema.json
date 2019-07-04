@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/kprevas/lttp-tools/master/textconvert/schema.json",
+  "title": "lttp-textconvert input file",
+  "description": "Input file for lttp-textconvert utility",
+  "type": "array",
+  "items": [
+    {
+      "type": "object",
+      "properties": {
+        "lines": {
+          "type": "array",
+          "description": "Text contents",
+          "items": [
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "pause": {
+          "type": "boolean",
+          "description": "Whether to pause for input",
+          "default": true
+        },
+        "asmLabel": {
+          "type": "string",
+          "description": "ASM label to insert at the beginning of this string"
+        }
+      },
+      "required": ["lines"]
+    }
+  ]
+}
