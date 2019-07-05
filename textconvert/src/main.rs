@@ -11,14 +11,36 @@ use clap::ArgMatches;
 use serde_json::Value;
 use simple_error::SimpleError;
 use std::error::Error;
-use std::fs::File;
-use std::io::{BufWriter, Write};
+use std::fs::{File, OpenOptions};
+use std::io::{BufWriter, Write, Read, stdout};
 
 const DEFAULT_ADDR: &str = "1C8000";
+const DEFAULT_ROM_ADDR: usize = 0xE0000;
 const DEFAULT_MODULE: &str = "text";
 const DEFAULT_LABEL: &str = "data";
 
 const LINE_WIDTH: usize = 14;
+
+fn parse_hex_arg(arg_matches: &ArgMatches, arg: &str, default: usize) -> Result<usize, Box<Error>> {
+    Ok(arg_matches.value_of(arg).map_or(Ok(default), |arg| {
+        usize::from_str_radix(arg.trim_start_matches("0x"), 16)
+    })?)
+}
+
+fn char_map_length(first: u8, next: u8) -> usize {
+    match first {
+        0xFE => match next {
+            0x6C => 3,
+            _ => 2
+        },
+        0xD2 => 2,
+        0xE5 => 2,
+        0xE6 => 2,
+        0xE8 => 2,
+        0xEA => 2,
+        _ => 1
+    }
+}
 
 fn char_map() -> BiMap<char, Vec<u8>> {
     let mut map = BiMap::new();
@@ -211,17 +233,34 @@ fn char_map() -> BiMap<char, Vec<u8>> {
     map
 }
 
+fn directive_length(first: u8, next: &[u8]) -> usize {
+    match first {
+        0xFA => 1,
+        0xF7 => 1,
+        0xFE => match next[0] {
+            0x67 => if next[1] == 0xFE && next[2] == 0x67 { 4 } else { 2 },
+            0x68 => 2,
+            0x69 => 2,
+            0x71 => 2,
+            0x72 => 2,
+            _ => 3
+        },
+        _ => 2
+    }
+}
+
 fn directives<'a>() -> BiMap<&'a str, Vec<u8>> {
     let mut map = BiMap::new();
     map.insert("SPEED0", vec![0xFC, 0x00]);
     map.insert("SPEED2", vec![0xFC, 0x02]);
+    map.insert("SPEED3", vec![0xFC, 0x03]);
     map.insert("SPEED6", vec![0xFC, 0x06]);
+    map.insert("SCROLLSPEED0", vec![0xFE, 0x6E, 0x00]);
     map.insert("PAUSE1", vec![0xFE, 0x78, 0x01]);
     map.insert("PAUSE3", vec![0xFE, 0x78, 0x03]);
     map.insert("PAUSE5", vec![0xFE, 0x78, 0x05]);
     map.insert("PAUSE7", vec![0xFE, 0x78, 0x07]);
     map.insert("PAUSE9", vec![0xFE, 0x78, 0x09]);
-    map.insert("INPUT", vec![0xFA]);
     map.insert("CHOICE", vec![0xFE, 0x68]);
     map.insert("ITEMSELECT", vec![0xFE, 0x69]);
     map.insert("CHOICE2", vec![0xFE, 0x71]);
@@ -232,6 +271,7 @@ fn directives<'a>() -> BiMap<&'a str, Vec<u8>> {
     map.insert("MENU", vec![0xFE, 0x6D, 0x00]);
     map.insert("BOTTOM", vec![0xFE, 0x6D, 0x01]);
     map.insert("NOBORDER", vec![0xFE, 0x6B, 0x02]);
+    map.insert("NOWINDOW", vec![0xFE, 0x6B, 0x04]);
     map.insert("CHANGEPIC", vec![0xFE, 0x67, 0xFE, 0x67]);
     map.insert("CHANGEMUSIC", vec![0xFE, 0x67]);
     map.insert(
@@ -240,11 +280,12 @@ fn directives<'a>() -> BiMap<&'a str, Vec<u8>> {
             0xFE, 0x6E, 0x00, 0xFE, 0x77, 0x07, 0xFC, 0x03, 0xFE, 0x6B, 0x02, 0xFE, 0x67,
         ],
     );
-    map.insert("NOTEXT", vec![0xFB, 0xFE, 0x6E, 0x00, 0xFE, 0x6B, 0x04]);
+    map.insert("NOTEXT", vec![0xFE, 0x6E, 0x00, 0xFE, 0x6B, 0x04]);
     map.insert(
         "IBOX",
         vec![0xFE, 0x6B, 0x02, 0xFE, 0x77, 0x07, 0xFC, 0x03, 0xF7],
     );
+    map.insert("IBOX_ENDBYTE", vec![0xF7]);
     map
 }
 
@@ -385,7 +426,68 @@ fn txt_to_asm(matches: &ArgMatches) -> Result<(), Box<Error>> {
                 .collect::<Vec<String>>()
                 .join(", ")
         )?;
+        writeln!(&mut writer, "        .db 80")?;
     }
+    Ok(())
+}
+
+fn dump_rom(matches: &ArgMatches) -> Result<(), Box<Error>> {
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(false)
+        .open(matches.value_of("romfile").unwrap())?;
+    let mut romdata = Vec::new();
+    file.read_to_end(&mut romdata)?;
+
+    let writer: Box<Write> = match matches.value_of("outfile") {
+        Some(outfile) => Box::new(File::create(outfile)?),
+        _ => Box::new(stdout())
+    };
+    let mut writer = BufWriter::new(writer);
+
+    let char_map = char_map();
+    let directives = directives();
+
+    writeln!(&mut writer, "[")?;
+
+    let mut i = parse_hex_arg(matches, "rom_addr", DEFAULT_ROM_ADDR)?;
+    assert_eq!(0xFB, romdata[i]);
+    i += 1;
+    while romdata[i] != 0x80 && romdata[i] != 0xFF {
+        writeln!(&mut writer, "  {{")?;
+        writeln!(&mut writer, "    \"lines\": [")?;
+        write!(&mut writer, "      \"")?;
+        while romdata[i] != 0xFB {
+            if romdata[i] >= 0xA0 && romdata[i] <= 0xA9 {
+                write!(&mut writer, "{}", romdata[i] - 0xA0)?;
+            } else if romdata[i] >= 0xAA && romdata[i] <= 0xC3 {
+                write!(&mut writer, "{}", (('A' as u8) + (romdata[i] - 0xAA)) as char)?;
+            } else {
+                let char_map_length = char_map_length(romdata[i], romdata[i + 1]);
+                if let Some(c) = char_map.get_by_right(&romdata[i..i + char_map_length].to_vec()) {
+                    write!(&mut writer, "{}", c)?;
+                } else {
+                    let directive_length = directive_length(romdata[i], &romdata[i + 1..i + 4]);
+                    if let Some(directive) = directives.get_by_right(&romdata[i..i + directive_length].to_vec()) {
+                        write!(&mut writer, "{{{}}}", directive)?;
+                        i += directive_length - 1;
+                    } else {
+                        if romdata[i] == 0xF6 || romdata[i] == 0xF8 || romdata[i] == 0xF9 {
+                            write!(&mut writer, "\",\n      \"")?;
+                        }
+                    }
+                }
+            }
+            i += 1;
+        }
+        writeln!(&mut writer, "\"")?;
+        writeln!(&mut writer, "    ]")?;
+        writeln!(&mut writer, "  }},")?;
+        i += 1;
+    }
+
+    writeln!(&mut writer, "]")?;
+
     Ok(())
 }
 
@@ -398,10 +500,17 @@ fn main() -> Result<(), Box<Error>> {
             (@arg asm_label: --asm_label +takes_value "label prefix to use for the data in the ASM file")
             (@arg asm_addr: --asm_addr +takes_value "hex address in SNES address space where text table should go")
         )
+        (@subcommand dump_rom =>
+            (@arg romfile: +required "input ROM file")
+            (@arg outfile: "output JSON file")
+            (@arg rom_addr: --rom_addr +takes_value "hex address in ROM space where the text bank is located")
+        )
     ).get_matches();
 
     if let Some(txt_to_asm_matches) = matches.subcommand_matches("txt_to_asm") {
         txt_to_asm(txt_to_asm_matches)?;
+    } else if let Some(dump_rom_matches) = matches.subcommand_matches("dump_rom") {
+        dump_rom(dump_rom_matches)?;
     }
 
     Ok(())
