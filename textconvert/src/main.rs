@@ -7,6 +7,7 @@ extern crate simple_error;
 extern crate textwrap;
 
 use bimap::BiMap;
+use clap::ArgMatches;
 use serde_json::Value;
 use simple_error::SimpleError;
 use std::error::Error;
@@ -247,15 +248,7 @@ fn directives<'a>() -> BiMap<&'a str, Vec<u8>> {
     map
 }
 
-fn main() -> Result<(), Box<Error>> {
-    let matches = clap_app!(lttp_tileconvert =>
-        (@arg infile: +required "input JSON file")
-        (@arg outfile: +required "output ASM file")
-        (@arg asm_module: --asm_module +takes_value "module name to use for the ASM file")
-        (@arg asm_label: --asm_label +takes_value "label prefix to use for the data in the ASM file")
-        (@arg asm_addr: --asm_addr +takes_value "hex address in SNES address space where text table should go")
-    ).get_matches();
-
+fn txt_to_asm(matches: &ArgMatches) -> Result<(), Box<Error>> {
     let infile = matches.value_of("infile").unwrap();
     let reader = File::open(infile)?;
     let json: Value = serde_json::from_reader(reader)?;
@@ -339,7 +332,7 @@ fn main() -> Result<(), Box<Error>> {
                             let directive =
                                 chars.by_ref().take_while(|c| *c != '}').collect::<String>();
                             if let Some(directive_bytes) =
-                                directives.get_by_left(&directive.as_str())
+                            directives.get_by_left(&directive.as_str())
                             {
                                 bytes.extend(directive_bytes.iter());
                             } else {
@@ -392,6 +385,23 @@ fn main() -> Result<(), Box<Error>> {
                 .collect::<Vec<String>>()
                 .join(", ")
         )?;
+    }
+    Ok(())
+}
+
+fn main() -> Result<(), Box<Error>> {
+    let matches = clap_app!(lttp_tileconvert =>
+        (@subcommand txt_to_asm =>
+            (@arg infile: +required "input JSON file")
+            (@arg outfile: +required "output ASM file")
+            (@arg asm_module: --asm_module +takes_value "module name to use for the ASM file")
+            (@arg asm_label: --asm_label +takes_value "label prefix to use for the data in the ASM file")
+            (@arg asm_addr: --asm_addr +takes_value "hex address in SNES address space where text table should go")
+        )
+    ).get_matches();
+
+    if let Some(txt_to_asm_matches) = matches.subcommand_matches("txt_to_asm") {
+        txt_to_asm(txt_to_asm_matches)?;
     }
 
     Ok(())

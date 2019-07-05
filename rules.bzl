@@ -69,7 +69,7 @@ def text_asm(
         srcs = [src],
         tools = ["//textconvert:lttp_textconvert"],
         outs = [name + ".asm"],
-        cmd = "$(location //textconvert:lttp_textconvert) $(location %s) $@ %s %s %s" %
+        cmd = "$(location //textconvert:lttp_textconvert) txt_to_asm $(location %s) $@ %s %s %s" %
                 (
                     src,
                     asm_module_arg,
