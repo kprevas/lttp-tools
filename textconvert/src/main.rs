@@ -482,8 +482,13 @@ fn dump_rom(matches: &ArgMatches) -> Result<(), Box<Error>> {
         }
         writeln!(&mut writer, "\"")?;
         writeln!(&mut writer, "    ]")?;
-        writeln!(&mut writer, "  }},")?;
+        write!(&mut writer, "  }}")?;
         i += 1;
+        if romdata[i] != 0x80 && romdata[i] != 0xFF {
+            writeln!(&mut writer, ",")?;
+        } else {
+            writeln!(&mut writer)?;
+        }
     }
 
     writeln!(&mut writer, "]")?;
