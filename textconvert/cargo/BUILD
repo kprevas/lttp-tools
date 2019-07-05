@@ -9,16 +9,16 @@ licenses([
   "notice" # See individual crates for specific licenses
 ])
 alias(
+    name = "bimap",
+    actual = "@raze__bimap__0_3_1//:bimap",
+)
+alias(
     name = "clap",
     actual = "@raze__clap__2_33_0//:clap",
 )
 alias(
     name = "itertools",
     actual = "@raze__itertools__0_8_0//:itertools",
-)
-alias(
-    name = "maplit",
-    actual = "@raze__maplit__1_0_1//:maplit",
 )
 alias(
     name = "serde",

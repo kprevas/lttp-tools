@@ -35,12 +35,30 @@ def raze_fetch_remote_crates():
     )
 
     _new_http_archive(
+        name = "raze__bimap__0_3_1",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/bimap/bimap-0.3.1.crate",
+        type = "tar.gz",
+        sha256 = "446177e5c72eca392a27926194ceb51a6d3f6a855ef56a490fca096e93f9971f",
+        strip_prefix = "bimap-0.3.1",
+        build_file = Label("//textconvert/cargo/remote:bimap-0.3.1.BUILD")
+    )
+
+    _new_http_archive(
         name = "raze__bitflags__1_1_0",
         url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/bitflags/bitflags-1.1.0.crate",
         type = "tar.gz",
         sha256 = "3d155346769a6855b86399e9bc3814ab343cd3d62c7e985113d46a0ec3c281fd",
         strip_prefix = "bitflags-1.1.0",
         build_file = Label("//textconvert/cargo/remote:bitflags-1.1.0.BUILD")
+    )
+
+    _new_http_archive(
+        name = "raze__cfg_if__0_1_9",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/cfg-if/cfg-if-0.1.9.crate",
+        type = "tar.gz",
+        sha256 = "b486ce3ccf7ffd79fdeb678eac06a9e6c09fc88d33836340becb8fffe87c5e33",
+        strip_prefix = "cfg-if-0.1.9",
+        build_file = Label("//textconvert/cargo/remote:cfg-if-0.1.9.BUILD")
     )
 
     _new_http_archive(
@@ -86,15 +104,6 @@ def raze_fetch_remote_crates():
         sha256 = "6281b86796ba5e4366000be6e9e18bf35580adf9e63fbe2294aadb587613a319",
         strip_prefix = "libc-0.2.58",
         build_file = Label("//textconvert/cargo/remote:libc-0.2.58.BUILD")
-    )
-
-    _new_http_archive(
-        name = "raze__maplit__1_0_1",
-        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/maplit/maplit-1.0.1.crate",
-        type = "tar.gz",
-        sha256 = "08cbb6b4fef96b6d77bfc40ec491b1690c779e77b05cd9f07f787ed376fd4c43",
-        strip_prefix = "maplit-1.0.1",
-        build_file = Label("//textconvert/cargo/remote:maplit-1.0.1.BUILD")
     )
 
     _new_http_archive(

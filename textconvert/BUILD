@@ -6,9 +6,9 @@ rust_binary(
     edition = "2018",
     visibility = ["//visibility:public"],
     deps = [
+        "//textconvert/cargo:bimap",
         "//textconvert/cargo:clap",
         "//textconvert/cargo:itertools",
-        "//textconvert/cargo:maplit",
         "//textconvert/cargo:serde_json",
         "//textconvert/cargo:simple_error",
         "//textconvert/cargo:textwrap",
