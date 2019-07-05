@@ -12,7 +12,7 @@ use serde_json::Value;
 use simple_error::SimpleError;
 use std::error::Error;
 use std::fs::{File, OpenOptions};
-use std::io::{BufWriter, Write, Read, stdout};
+use std::io::{stdout, BufWriter, Read, Write};
 
 const DEFAULT_ADDR: &str = "1C8000";
 const DEFAULT_ROM_ADDR: usize = 0xE0000;
@@ -31,14 +31,14 @@ fn char_map_length(first: u8, next: u8) -> usize {
     match first {
         0xFE => match next {
             0x6C => 3,
-            _ => 2
+            _ => 2,
         },
         0xD2 => 2,
         0xE5 => 2,
         0xE6 => 2,
         0xE8 => 2,
         0xEA => 2,
-        _ => 1
+        _ => 1,
     }
 }
 
@@ -238,14 +238,20 @@ fn directive_length(first: u8, next: &[u8]) -> usize {
         0xFA => 1,
         0xF7 => 1,
         0xFE => match next[0] {
-            0x67 => if next[1] == 0xFE && next[2] == 0x67 { 4 } else { 2 },
+            0x67 => {
+                if next[1] == 0xFE && next[2] == 0x67 {
+                    4
+                } else {
+                    2
+                }
+            }
             0x68 => 2,
             0x69 => 2,
             0x71 => 2,
             0x72 => 2,
-            _ => 3
+            _ => 3,
         },
-        _ => 2
+        _ => 2,
     }
 }
 
@@ -373,7 +379,7 @@ fn txt_to_asm(matches: &ArgMatches) -> Result<(), Box<Error>> {
                             let directive =
                                 chars.by_ref().take_while(|c| *c != '}').collect::<String>();
                             if let Some(directive_bytes) =
-                            directives.get_by_left(&directive.as_str())
+                                directives.get_by_left(&directive.as_str())
                             {
                                 bytes.extend(directive_bytes.iter());
                             } else {
@@ -441,7 +447,7 @@ fn dump_rom(matches: &ArgMatches) -> Result<(), Box<Error>> {
 
     let writer: Box<Write> = match matches.value_of("outfile") {
         Some(outfile) => Box::new(File::create(outfile)?),
-        _ => Box::new(stdout())
+        _ => Box::new(stdout()),
     };
     let mut writer = BufWriter::new(writer);
 
@@ -461,14 +467,20 @@ fn dump_rom(matches: &ArgMatches) -> Result<(), Box<Error>> {
             if romdata[i] >= 0xA0 && romdata[i] <= 0xA9 {
                 write!(&mut writer, "{}", romdata[i] - 0xA0)?;
             } else if romdata[i] >= 0xAA && romdata[i] <= 0xC3 {
-                write!(&mut writer, "{}", (('A' as u8) + (romdata[i] - 0xAA)) as char)?;
+                write!(
+                    &mut writer,
+                    "{}",
+                    (('A' as u8) + (romdata[i] - 0xAA)) as char
+                )?;
             } else {
                 let char_map_length = char_map_length(romdata[i], romdata[i + 1]);
                 if let Some(c) = char_map.get_by_right(&romdata[i..i + char_map_length].to_vec()) {
                     write!(&mut writer, "{}", c)?;
                 } else {
                     let directive_length = directive_length(romdata[i], &romdata[i + 1..i + 4]);
-                    if let Some(directive) = directives.get_by_right(&romdata[i..i + directive_length].to_vec()) {
+                    if let Some(directive) =
+                        directives.get_by_right(&romdata[i..i + directive_length].to_vec())
+                    {
                         write!(&mut writer, "{{{}}}", directive)?;
                         i += directive_length - 1;
                     } else {
