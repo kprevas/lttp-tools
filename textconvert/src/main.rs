@@ -2,12 +2,15 @@ extern crate bimap;
 #[macro_use]
 extern crate clap;
 extern crate itertools;
+extern crate regex;
 extern crate serde_json;
 extern crate simple_error;
 extern crate textwrap;
 
 use bimap::BiMap;
 use clap::ArgMatches;
+use itertools::Itertools;
+use regex::Regex;
 use serde_json::Value;
 use simple_error::SimpleError;
 use std::error::Error;
@@ -295,6 +298,32 @@ fn directives<'a>() -> BiMap<&'a str, Vec<u8>> {
     map
 }
 
+fn wrap_line(line: &str) -> Vec<String> {
+    let re = Regex::new("\\{[^}]*}").unwrap();
+    let directives = re.find_iter(line).collect_vec();
+    let zero_width_directives = re.replace_all(line, "\u{200B}");
+    let wrapped = textwrap::wrap(&zero_width_directives, LINE_WIDTH);
+    let mut wrapped_replaced = vec![];
+    let mut directive_idx = 0;
+    for line in wrapped {
+        let mut replaced = line.to_string();
+        let zero_width_re = Regex::new("\u{200B}").unwrap();
+        let mut has_match = zero_width_re.is_match(&replaced);
+        while has_match {
+            let replaced_old = replaced.clone();
+            let zero_width_match = zero_width_re.find(&replaced_old).unwrap();
+            replaced.replace_range(
+                zero_width_match.start()..zero_width_match.end(),
+                &directives[directive_idx].as_str(),
+            );
+            directive_idx += 1;
+            has_match = zero_width_re.is_match(&replaced);
+        }
+        wrapped_replaced.push(replaced);
+    }
+    wrapped_replaced
+}
+
 fn txt_to_asm(matches: &ArgMatches) -> Result<(), Box<Error>> {
     let infile = matches.value_of("infile").unwrap();
     let reader = File::open(infile)?;
@@ -353,75 +382,72 @@ fn txt_to_asm(matches: &ArgMatches) -> Result<(), Box<Error>> {
             ))));
         }
         let lines = lines.unwrap();
+        // Check values first so we can just unwrap() later.
+        lines.iter().fold(Ok(()), |r: Result<(), Box<SimpleError>>, v| {
+            if r.is_err() {
+                r
+            } else if v.as_str().is_none() {
+                Err(Box::from(SimpleError::new(format!(
+                    "Failed to parse {}",
+                    infile
+                ))))
+            } else {
+                Ok(())
+            }
+        })?;
+        let lines = lines
+            .iter()
+            .flat_map(|line| wrap_line(line.as_str().unwrap()))
+            .collect_vec();
         let mut line_num = 0;
         let line_count;
-        let last_line = lines.last().unwrap();
-        if let Some(last_line) = last_line.as_str() {
-            if last_line.starts_with("{") {
-                line_count = lines.len() - 1;
-            } else {
-                line_count = lines.len();
-            }
+        if lines.last().unwrap_or(&"".to_string()).starts_with("{") {
+            line_count = lines.len() - 1;
         } else {
-            return Err(Box::from(SimpleError::new(format!(
-                "Failed to parse {}",
-                infile
-            ))));
+            line_count = lines.len();
         }
         let mut bytes = vec![0xFBu8];
         for line in lines {
-            if let Some(line) = line.as_str() {
-                for wrapped_line in textwrap::wrap(line, LINE_WIDTH) {
-                    let mut chars = wrapped_line.chars();
-                    let mut next_char = chars.next();
-                    while let Some(c) = next_char {
-                        if c == '{' {
-                            let directive =
-                                chars.by_ref().take_while(|c| *c != '}').collect::<String>();
-                            if let Some(directive_bytes) =
-                                directives.get_by_left(&directive.as_str())
-                            {
-                                bytes.extend(directive_bytes.iter());
-                            } else {
-                                return Err(Box::from(SimpleError::new(format!(
-                                    "Text {} contained illegal directive {}",
-                                    wrapped_line, directive
-                                ))));
-                            }
-                        } else if let Some(digit) = c.to_digit(10) {
-                            bytes.push(0xA0 + digit as u8);
-                        } else if c.is_ascii_alphabetic() {
-                            bytes.push(0xAA + (c.to_ascii_uppercase() as u8) - ('A' as u8));
-                        } else if let Some(char_bytes) = char_map.get_by_left(&c) {
-                            bytes.extend(char_bytes.iter());
-                        } else {
-                            return Err(Box::from(SimpleError::new(format!(
-                                "Text {} contained illegal character {}",
-                                wrapped_line, c
-                            ))));
-                        }
-                        next_char = chars.next();
-                    }
-                    if line_num == 1 {
-                        bytes.push(0xF8);
-                    } else if line_num != 0 {
-                        if line_num >= 3 && line_num < line_count {
-                            bytes.push(0xF6);
-                        } else {
-                            bytes.push(0xF9);
-                        }
-                    }
-                    line_num += 1;
-                    if pause && line_num % 3 == 0 && line_num < line_count {
-                        bytes.push(0xFA);
-                    }
-                }
-            } else {
-                return Err(Box::from(SimpleError::new(format!(
-                    "Failed to parse {}",
-                    infile
-                ))));
+            if pause && line_num > 0 && line_num % 3 == 0 && line_num < line_count {
+                bytes.push(0xFA);
             }
+            if line_num == 1 {
+                bytes.push(0xF8);
+            } else if line_num != 0 {
+                if line_num >= 3 && line_num < line_count {
+                    bytes.push(0xF6);
+                } else {
+                    bytes.push(0xF9);
+                }
+            }
+            let mut chars = line.chars();
+            let mut next_char = chars.next();
+            while let Some(c) = next_char {
+                if c == '{' {
+                    let directive = chars.by_ref().take_while(|c| *c != '}').collect::<String>();
+                    if let Some(directive_bytes) = directives.get_by_left(&directive.as_str()) {
+                        bytes.extend(directive_bytes.iter());
+                    } else {
+                        return Err(Box::from(SimpleError::new(format!(
+                            "Text {} contained illegal directive {}",
+                            line, directive
+                        ))));
+                    }
+                } else if let Some(digit) = c.to_digit(10) {
+                    bytes.push(0xA0 + digit as u8);
+                } else if c.is_ascii_alphabetic() {
+                    bytes.push(0xAA + ((c.to_ascii_uppercase() as u8) - ('A' as u8)));
+                } else if let Some(char_bytes) = char_map.get_by_left(&c) {
+                    bytes.extend(char_bytes.iter());
+                } else {
+                    return Err(Box::from(SimpleError::new(format!(
+                        "Text {} contained illegal character {}",
+                        line, c
+                    ))));
+                }
+                next_char = chars.next();
+            }
+            line_num += 1;
         }
         writeln!(
             &mut writer,
@@ -432,8 +458,8 @@ fn txt_to_asm(matches: &ArgMatches) -> Result<(), Box<Error>> {
                 .collect::<Vec<String>>()
                 .join(", ")
         )?;
-        writeln!(&mut writer, "        .db 80")?;
     }
+    writeln!(&mut writer, "        .db $FF, $FF")?;
     Ok(())
 }
 

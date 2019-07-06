@@ -21,6 +21,10 @@ alias(
     actual = "@raze__itertools__0_8_0//:itertools",
 )
 alias(
+    name = "regex",
+    actual = "@raze__regex__1_1_8//:regex",
+)
+alias(
     name = "serde",
     actual = "@raze__serde__1_0_94//:serde",
 )

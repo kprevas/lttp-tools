@@ -9,6 +9,7 @@ rust_binary(
         "//textconvert/cargo:bimap",
         "//textconvert/cargo:clap",
         "//textconvert/cargo:itertools",
+        "//textconvert/cargo:regex",
         "//textconvert/cargo:serde_json",
         "//textconvert/cargo:simple_error",
         "//textconvert/cargo:textwrap",

@@ -17,6 +17,15 @@ def _new_git_repository(name, **kwargs):
 def raze_fetch_remote_crates():
 
     _new_http_archive(
+        name = "raze__aho_corasick__0_7_4",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/aho-corasick/aho-corasick-0.7.4.crate",
+        type = "tar.gz",
+        sha256 = "36b7aa1ccb7d7ea3f437cf025a2ab1c47cc6c1bc9fc84918ff449def12f5e282",
+        strip_prefix = "aho-corasick-0.7.4",
+        build_file = Label("//textconvert/cargo/remote:aho-corasick-0.7.4.BUILD")
+    )
+
+    _new_http_archive(
         name = "raze__ansi_term__0_11_0",
         url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/ansi_term/ansi_term-0.11.0.crate",
         type = "tar.gz",
@@ -98,12 +107,30 @@ def raze_fetch_remote_crates():
     )
 
     _new_http_archive(
+        name = "raze__lazy_static__1_3_0",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/lazy_static/lazy_static-1.3.0.crate",
+        type = "tar.gz",
+        sha256 = "bc5729f27f159ddd61f4df6228e827e86643d4d3e7c32183cb30a1c08f604a14",
+        strip_prefix = "lazy_static-1.3.0",
+        build_file = Label("//textconvert/cargo/remote:lazy_static-1.3.0.BUILD")
+    )
+
+    _new_http_archive(
         name = "raze__libc__0_2_58",
         url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/libc/libc-0.2.58.crate",
         type = "tar.gz",
         sha256 = "6281b86796ba5e4366000be6e9e18bf35580adf9e63fbe2294aadb587613a319",
         strip_prefix = "libc-0.2.58",
         build_file = Label("//textconvert/cargo/remote:libc-0.2.58.BUILD")
+    )
+
+    _new_http_archive(
+        name = "raze__memchr__2_2_0",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/memchr/memchr-2.2.0.crate",
+        type = "tar.gz",
+        sha256 = "2efc7bc57c883d4a4d6e3246905283d8dae951bb3bd32f49d6ef297f546e1c39",
+        strip_prefix = "memchr-2.2.0",
+        build_file = Label("//textconvert/cargo/remote:memchr-2.2.0.BUILD")
     )
 
     _new_http_archive(
@@ -131,6 +158,24 @@ def raze_fetch_remote_crates():
         sha256 = "7e891cfe48e9100a70a3b6eb652fef28920c117d366339687bd5576160db0f76",
         strip_prefix = "redox_termios-0.1.1",
         build_file = Label("//textconvert/cargo/remote:redox_termios-0.1.1.BUILD")
+    )
+
+    _new_http_archive(
+        name = "raze__regex__1_1_8",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/regex/regex-1.1.8.crate",
+        type = "tar.gz",
+        sha256 = "1325e8a57b7da4cbcb38b3957112f729990bad0a18420e7e250ef6b1d9a15763",
+        strip_prefix = "regex-1.1.8",
+        build_file = Label("//textconvert/cargo/remote:regex-1.1.8.BUILD")
+    )
+
+    _new_http_archive(
+        name = "raze__regex_syntax__0_6_7",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/regex-syntax/regex-syntax-0.6.7.crate",
+        type = "tar.gz",
+        sha256 = "9d76410686f9e3a17f06128962e0ecc5755870bb890c34820c7af7f1db2e1d48",
+        strip_prefix = "regex-syntax-0.6.7",
+        build_file = Label("//textconvert/cargo/remote:regex-syntax-0.6.7.BUILD")
     )
 
     _new_http_archive(
@@ -197,12 +242,39 @@ def raze_fetch_remote_crates():
     )
 
     _new_http_archive(
+        name = "raze__thread_local__0_3_6",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/thread_local/thread_local-0.3.6.crate",
+        type = "tar.gz",
+        sha256 = "c6b53e329000edc2b34dbe8545fd20e55a333362d0a321909685a19bd28c3f1b",
+        strip_prefix = "thread_local-0.3.6",
+        build_file = Label("//textconvert/cargo/remote:thread_local-0.3.6.BUILD")
+    )
+
+    _new_http_archive(
+        name = "raze__ucd_util__0_1_3",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/ucd-util/ucd-util-0.1.3.crate",
+        type = "tar.gz",
+        sha256 = "535c204ee4d8434478593480b8f86ab45ec9aae0e83c568ca81abf0fd0e88f86",
+        strip_prefix = "ucd-util-0.1.3",
+        build_file = Label("//textconvert/cargo/remote:ucd-util-0.1.3.BUILD")
+    )
+
+    _new_http_archive(
         name = "raze__unicode_width__0_1_5",
         url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/unicode-width/unicode-width-0.1.5.crate",
         type = "tar.gz",
         sha256 = "882386231c45df4700b275c7ff55b6f3698780a650026380e72dabe76fa46526",
         strip_prefix = "unicode-width-0.1.5",
         build_file = Label("//textconvert/cargo/remote:unicode-width-0.1.5.BUILD")
+    )
+
+    _new_http_archive(
+        name = "raze__utf8_ranges__1_0_3",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/utf8-ranges/utf8-ranges-1.0.3.crate",
+        type = "tar.gz",
+        sha256 = "9d50aa7650df78abf942826607c62468ce18d9019673d4a2ebe1865dbb96ffde",
+        strip_prefix = "utf8-ranges-1.0.3",
+        build_file = Label("//textconvert/cargo/remote:utf8-ranges-1.0.3.BUILD")
     )
 
     _new_http_archive(
