@@ -23,6 +23,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 const DEFAULT_ADDR: &str = "1C8000";
 const DEFAULT_ROM_ADDR: usize = 0xE0000;
+const DEFAULT_ROM_END_ADDR: usize = 0xE7355;
 const DEFAULT_MODULE: &str = "text";
 const DEFAULT_LABEL: &str = "data";
 
@@ -304,7 +305,6 @@ fn directives<'a>() -> BiMap<&'a str, Vec<u8>> {
 
 fn check_line_length(line: &str) -> Result<(), Box<Error>> {
     let re = Regex::new("\\{[^}]*}").unwrap();
-    let directives = re.find_iter(line).collect_vec();
     let removed_directives = re.replace_all(line, "");
     info!("{} {:?}", line, removed_directives.graphemes(true).collect_vec());
     if removed_directives.graphemes(true).count() > LINE_WIDTH {
@@ -477,9 +477,11 @@ fn dump_rom(matches: &ArgMatches) -> Result<(), Box<Error>> {
     writeln!(&mut writer, "[")?;
 
     let mut i = parse_hex_arg(matches, "rom_addr", DEFAULT_ROM_ADDR)?;
+    let end = parse_hex_arg(matches, "rom_end_addr", DEFAULT_ROM_END_ADDR)?;
+    let mut done = false;
     assert_eq!(0xFB, romdata[i]);
     i += 1;
-    while romdata[i] != 0x80 && romdata[i] != 0xFF {
+    while !done {
         writeln!(&mut writer, "  {{")?;
         writeln!(&mut writer, "    \"lines\": [")?;
         write!(&mut writer, "      \"")?;
@@ -516,10 +518,10 @@ fn dump_rom(matches: &ArgMatches) -> Result<(), Box<Error>> {
         writeln!(&mut writer, "    ]")?;
         write!(&mut writer, "  }}")?;
         i += 1;
-        if romdata[i] != 0x80 && romdata[i] != 0xFF {
+        done = i > end || (romdata[i] == 0xFF && romdata[i + 1] == 0xFF && romdata[i + 2] == 0xFF);
+        if done {
             writeln!(&mut writer, ",")?;
         } else {
-            info!("Found terminator character at ROM address {:06X}", i);
             writeln!(&mut writer)?;
         }
     }
@@ -544,6 +546,7 @@ fn main() -> Result<(), Box<Error>> {
             (@arg romfile: +required "input ROM file")
             (@arg outfile: "output JSON file")
             (@arg rom_addr: --rom_addr +takes_value "hex address in ROM space where the text bank is located")
+            (@arg rom_end_addr: --rom_end_addr +takes_value "hex address in ROM space where the text bank ends")
         )
     ).get_matches();
 
