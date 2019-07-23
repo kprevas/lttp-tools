@@ -12,7 +12,7 @@ package(default_visibility = [
 ])
 
 licenses([
-  "notice", # "MIT,Apache-2.0"
+  "restricted", # "MIT OR Apache-2.0"
 ])
 
 load(
@@ -23,25 +23,24 @@ load(
 )
 
 
+# Unsupported target "build-script-build" with type "custom-build" omitted
+# Unsupported target "filters" with type "test" omitted
 
 rust_library(
-    name = "quote",
+    name = "log",
     crate_root = "src/lib.rs",
     crate_type = "lib",
     edition = "2015",
     srcs = glob(["**/*.rs"]),
     deps = [
-        "@raze__proc_macro2__0_4_30//:proc_macro2",
+        "@raze__cfg_if__0_1_9//:cfg_if",
     ],
     rustc_flags = [
         "--cap-lints=allow",
     ],
-    version = "0.6.12",
+    version = "0.4.7",
     crate_features = [
-        "default",
-        "proc-macro",
-        "proc-macro2",
+        "std",
     ],
 )
 
-# Unsupported target "test" with type "test" omitted

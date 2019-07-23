@@ -12,7 +12,8 @@ package(default_visibility = [
 ])
 
 licenses([
-  "notice", # "MIT,Apache-2.0"
+  "notice", # "MIT"
+  "unencumbered", # "Unlicense"
 ])
 
 load(
@@ -25,7 +26,7 @@ load(
 
 
 rust_library(
-    name = "maplit",
+    name = "winapi_util",
     crate_root = "src/lib.rs",
     crate_type = "lib",
     edition = "2015",
@@ -35,9 +36,8 @@ rust_library(
     rustc_flags = [
         "--cap-lints=allow",
     ],
-    version = "1.0.1",
+    version = "0.1.2",
     crate_features = [
     ],
 )
 
-# Unsupported target "tests" with type "test" omitted

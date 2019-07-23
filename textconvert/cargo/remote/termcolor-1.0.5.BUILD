@@ -12,7 +12,7 @@ package(default_visibility = [
 ])
 
 licenses([
-  "notice", # "MIT,Apache-2.0"
+  "restricted", # "Unlicense OR MIT"
 ])
 
 load(
@@ -25,7 +25,7 @@ load(
 
 
 rust_library(
-    name = "unicode_xid",
+    name = "termcolor",
     crate_root = "src/lib.rs",
     crate_type = "lib",
     edition = "2015",
@@ -35,9 +35,8 @@ rust_library(
     rustc_flags = [
         "--cap-lints=allow",
     ],
-    version = "0.1.0",
+    version = "1.0.5",
     crate_features = [
-        "default",
     ],
 )
 

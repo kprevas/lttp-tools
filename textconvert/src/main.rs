@@ -2,10 +2,13 @@ extern crate bimap;
 #[macro_use]
 extern crate clap;
 extern crate itertools;
+#[macro_use]
+extern crate log;
+extern crate env_logger;
 extern crate regex;
 extern crate serde_json;
 extern crate simple_error;
-extern crate textwrap;
+extern crate unicode_segmentation;
 
 use bimap::BiMap;
 use clap::ArgMatches;
@@ -16,6 +19,7 @@ use simple_error::SimpleError;
 use std::error::Error;
 use std::fs::{File, OpenOptions};
 use std::io::{stdout, BufWriter, Read, Write};
+use unicode_segmentation::UnicodeSegmentation;
 
 const DEFAULT_ADDR: &str = "1C8000";
 const DEFAULT_ROM_ADDR: usize = 0xE0000;
@@ -298,30 +302,19 @@ fn directives<'a>() -> BiMap<&'a str, Vec<u8>> {
     map
 }
 
-fn wrap_line(line: &str) -> Vec<String> {
+fn check_line_length(line: &str) -> Result<(), Box<Error>> {
     let re = Regex::new("\\{[^}]*}").unwrap();
     let directives = re.find_iter(line).collect_vec();
-    let zero_width_directives = re.replace_all(line, "\u{200B}");
-    let wrapped = textwrap::wrap(&zero_width_directives, LINE_WIDTH);
-    let mut wrapped_replaced = vec![];
-    let mut directive_idx = 0;
-    for line in wrapped {
-        let mut replaced = line.to_string();
-        let zero_width_re = Regex::new("\u{200B}").unwrap();
-        let mut has_match = zero_width_re.is_match(&replaced);
-        while has_match {
-            let replaced_old = replaced.clone();
-            let zero_width_match = zero_width_re.find(&replaced_old).unwrap();
-            replaced.replace_range(
-                zero_width_match.start()..zero_width_match.end(),
-                &directives[directive_idx].as_str(),
-            );
-            directive_idx += 1;
-            has_match = zero_width_re.is_match(&replaced);
-        }
-        wrapped_replaced.push(replaced);
+    let removed_directives = re.replace_all(line, "");
+    info!("{} {:?}", line, removed_directives.graphemes(true).collect_vec());
+    if removed_directives.graphemes(true).count() > LINE_WIDTH {
+        Err(Box::from(SimpleError::new(format!(
+            "Line was too long: {}",
+            line
+        ))))
+    } else {
+        Ok(())
     }
-    wrapped_replaced
 }
 
 fn txt_to_asm(matches: &ArgMatches) -> Result<(), Box<Error>> {
@@ -397,17 +390,18 @@ fn txt_to_asm(matches: &ArgMatches) -> Result<(), Box<Error>> {
         })?;
         let lines = lines
             .iter()
-            .flat_map(|line| wrap_line(line.as_str().unwrap()))
+            .map(|line| line.as_str().unwrap())
             .collect_vec();
         let mut line_num = 0;
         let line_count;
-        if lines.last().unwrap_or(&"".to_string()).starts_with("{") {
+        if lines.last().unwrap_or(&"").starts_with("{") {
             line_count = lines.len() - 1;
         } else {
             line_count = lines.len();
         }
         let mut bytes = vec![0xFBu8];
         for line in lines {
+            check_line_length(line)?;
             if pause && line_num > 0 && line_num % 3 == 0 && line_num < line_count {
                 bytes.push(0xFA);
             }
@@ -525,6 +519,7 @@ fn dump_rom(matches: &ArgMatches) -> Result<(), Box<Error>> {
         if romdata[i] != 0x80 && romdata[i] != 0xFF {
             writeln!(&mut writer, ",")?;
         } else {
+            info!("Found terminator character at ROM address {:06X}", i);
             writeln!(&mut writer)?;
         }
     }
@@ -535,6 +530,8 @@ fn dump_rom(matches: &ArgMatches) -> Result<(), Box<Error>> {
 }
 
 fn main() -> Result<(), Box<Error>> {
+    env_logger::init();
+
     let matches = clap_app!(lttp_tileconvert =>
         (@subcommand txt_to_asm =>
             (@arg infile: +required "input JSON file")

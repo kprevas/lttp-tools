@@ -23,32 +23,23 @@ load(
 )
 
 
-# Unsupported target "build-script-build" with type "custom-build" omitted
+# Unsupported target "datetime_format" with type "bench" omitted
+# Unsupported target "datetime_parse" with type "bench" omitted
 
 rust_library(
-    name = "winapi",
+    name = "humantime",
     crate_root = "src/lib.rs",
     crate_type = "lib",
     edition = "2015",
     srcs = glob(["**/*.rs"]),
     deps = [
+        "@raze__quick_error__1_2_2//:quick_error",
     ],
     rustc_flags = [
         "--cap-lints=allow",
     ],
-    version = "0.3.7",
+    version = "1.2.0",
     crate_features = [
-        "consoleapi",
-        "errhandlingapi",
-        "fileapi",
-        "minwinbase",
-        "minwindef",
-        "processenv",
-        "std",
-        "winbase",
-        "wincon",
-        "winerror",
-        "winnt",
     ],
 )
 

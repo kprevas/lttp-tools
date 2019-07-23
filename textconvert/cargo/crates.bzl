@@ -89,6 +89,24 @@ def raze_fetch_remote_crates():
     )
 
     _new_http_archive(
+        name = "raze__env_logger__0_6_1",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/env_logger/env_logger-0.6.1.crate",
+        type = "tar.gz",
+        sha256 = "b61fa891024a945da30a9581546e8cfaf5602c7b3f4c137a2805cf388f92075a",
+        strip_prefix = "env_logger-0.6.1",
+        build_file = Label("//textconvert/cargo/remote:env_logger-0.6.1.BUILD")
+    )
+
+    _new_http_archive(
+        name = "raze__humantime__1_2_0",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/humantime/humantime-1.2.0.crate",
+        type = "tar.gz",
+        sha256 = "3ca7e5f2e110db35f93b837c81797f3714500b81d517bf20c431b16d3ca4f114",
+        strip_prefix = "humantime-1.2.0",
+        build_file = Label("//textconvert/cargo/remote:humantime-1.2.0.BUILD")
+    )
+
+    _new_http_archive(
         name = "raze__itertools__0_8_0",
         url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/itertools/itertools-0.8.0.crate",
         type = "tar.gz",
@@ -125,6 +143,15 @@ def raze_fetch_remote_crates():
     )
 
     _new_http_archive(
+        name = "raze__log__0_4_7",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/log/log-0.4.7.crate",
+        type = "tar.gz",
+        sha256 = "c275b6ad54070ac2d665eef9197db647b32239c9d244bfb6f041a766d00da5b3",
+        strip_prefix = "log-0.4.7",
+        build_file = Label("//textconvert/cargo/remote:log-0.4.7.BUILD")
+    )
+
+    _new_http_archive(
         name = "raze__memchr__2_2_0",
         url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/memchr/memchr-2.2.0.crate",
         type = "tar.gz",
@@ -140,6 +167,15 @@ def raze_fetch_remote_crates():
         sha256 = "b8f8bdf33df195859076e54ab11ee78a1b208382d3a26ec40d142ffc1ecc49ef",
         strip_prefix = "numtoa-0.1.0",
         build_file = Label("//textconvert/cargo/remote:numtoa-0.1.0.BUILD")
+    )
+
+    _new_http_archive(
+        name = "raze__quick_error__1_2_2",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/quick-error/quick-error-1.2.2.crate",
+        type = "tar.gz",
+        sha256 = "9274b940887ce9addde99c4eee6b5c44cc494b182b97e73dc8ffdcb3397fd3f0",
+        strip_prefix = "quick-error-1.2.2",
+        build_file = Label("//textconvert/cargo/remote:quick-error-1.2.2.BUILD")
     )
 
     _new_http_archive(
@@ -224,6 +260,15 @@ def raze_fetch_remote_crates():
     )
 
     _new_http_archive(
+        name = "raze__termcolor__1_0_5",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/termcolor/termcolor-1.0.5.crate",
+        type = "tar.gz",
+        sha256 = "96d6098003bde162e4277c70665bd87c326f5a0c3f3fbfb285787fa482d54e6e",
+        strip_prefix = "termcolor-1.0.5",
+        build_file = Label("//textconvert/cargo/remote:termcolor-1.0.5.BUILD")
+    )
+
+    _new_http_archive(
         name = "raze__termion__1_5_3",
         url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/termion/termion-1.5.3.crate",
         type = "tar.gz",
@@ -257,6 +302,15 @@ def raze_fetch_remote_crates():
         sha256 = "535c204ee4d8434478593480b8f86ab45ec9aae0e83c568ca81abf0fd0e88f86",
         strip_prefix = "ucd-util-0.1.3",
         build_file = Label("//textconvert/cargo/remote:ucd-util-0.1.3.BUILD")
+    )
+
+    _new_http_archive(
+        name = "raze__unicode_segmentation__1_3_0",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/unicode-segmentation/unicode-segmentation-1.3.0.crate",
+        type = "tar.gz",
+        sha256 = "1967f4cdfc355b37fd76d2a954fb2ed3871034eb4f26d60537d88795cfc332a9",
+        strip_prefix = "unicode-segmentation-1.3.0",
+        build_file = Label("//textconvert/cargo/remote:unicode-segmentation-1.3.0.BUILD")
     )
 
     _new_http_archive(
@@ -305,11 +359,29 @@ def raze_fetch_remote_crates():
     )
 
     _new_http_archive(
+        name = "raze__winapi_util__0_1_2",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/winapi-util/winapi-util-0.1.2.crate",
+        type = "tar.gz",
+        sha256 = "7168bab6e1daee33b4557efd0e95d5ca70a03706d39fa5f3fe7a236f584b03c9",
+        strip_prefix = "winapi-util-0.1.2",
+        build_file = Label("//textconvert/cargo/remote:winapi-util-0.1.2.BUILD")
+    )
+
+    _new_http_archive(
         name = "raze__winapi_x86_64_pc_windows_gnu__0_4_0",
         url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/winapi-x86_64-pc-windows-gnu/winapi-x86_64-pc-windows-gnu-0.4.0.crate",
         type = "tar.gz",
         sha256 = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f",
         strip_prefix = "winapi-x86_64-pc-windows-gnu-0.4.0",
         build_file = Label("//textconvert/cargo/remote:winapi-x86_64-pc-windows-gnu-0.4.0.BUILD")
+    )
+
+    _new_http_archive(
+        name = "raze__wincolor__1_0_1",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/wincolor/wincolor-1.0.1.crate",
+        type = "tar.gz",
+        sha256 = "561ed901ae465d6185fa7864d63fbd5720d0ef718366c9a4dc83cf6170d7e9ba",
+        strip_prefix = "wincolor-1.0.1",
+        build_file = Label("//textconvert/cargo/remote:wincolor-1.0.1.BUILD")
     )
 

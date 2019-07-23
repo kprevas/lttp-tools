@@ -12,7 +12,8 @@ package(default_visibility = [
 ])
 
 licenses([
-  "notice", # "MIT,Apache-2.0"
+  "notice", # "MIT"
+  "unencumbered", # "Unlicense"
 ])
 
 load(
@@ -23,32 +24,22 @@ load(
 )
 
 
-# Unsupported target "build-script-build" with type "custom-build" omitted
 
 rust_library(
-    name = "winapi",
+    name = "wincolor",
     crate_root = "src/lib.rs",
     crate_type = "lib",
     edition = "2015",
     srcs = glob(["**/*.rs"]),
     deps = [
+        "@raze__winapi__0_3_7//:winapi",
+        "@raze__winapi_util__0_1_2//:winapi_util",
     ],
     rustc_flags = [
         "--cap-lints=allow",
     ],
-    version = "0.3.7",
+    version = "1.0.1",
     crate_features = [
-        "consoleapi",
-        "errhandlingapi",
-        "fileapi",
-        "minwinbase",
-        "minwindef",
-        "processenv",
-        "std",
-        "winbase",
-        "wincon",
-        "winerror",
-        "winnt",
     ],
 )
 

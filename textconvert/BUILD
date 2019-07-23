@@ -8,10 +8,12 @@ rust_binary(
     deps = [
         "//textconvert/cargo:bimap",
         "//textconvert/cargo:clap",
+        "//textconvert/cargo:env_logger",
         "//textconvert/cargo:itertools",
+        "//textconvert/cargo:log",
         "//textconvert/cargo:regex",
         "//textconvert/cargo:serde_json",
         "//textconvert/cargo:simple_error",
-        "//textconvert/cargo:textwrap",
+        "//textconvert/cargo:unicode_segmentation",
     ],
 )

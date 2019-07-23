@@ -23,26 +23,20 @@ load(
 )
 
 
-# Unsupported target "build-script-build" with type "custom-build" omitted
-# Unsupported target "marker" with type "test" omitted
 
 rust_library(
-    name = "proc_macro2",
+    name = "unicode_segmentation",
     crate_root = "src/lib.rs",
     crate_type = "lib",
     edition = "2015",
     srcs = glob(["**/*.rs"]),
     deps = [
-        "@raze__unicode_xid__0_1_0//:unicode_xid",
     ],
     rustc_flags = [
         "--cap-lints=allow",
     ],
-    version = "0.4.30",
+    version = "1.3.0",
     crate_features = [
-        "default",
-        "proc-macro",
     ],
 )
 
-# Unsupported target "test" with type "test" omitted
