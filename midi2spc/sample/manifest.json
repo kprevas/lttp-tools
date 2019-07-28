@@ -1,0 +1,110 @@
+{
+  "overworld": {
+    "Title": {
+      "input": "adagio-for-strings.mid"
+    },
+    "World Map": {
+      "input": "at-peace.mid"
+    },
+    "Beginning": {
+      "input": "polar-penguin.mid"
+    },
+    "Rabbit": {
+      "input": "Championship-Fanfare.mid"
+    },
+    "Forest": {
+      "input": "Caper-Arranged.mid"
+    },
+    "Intro": {
+      "input": "Gentle-Song.mid"
+    },
+    "Town": {
+      "input": "Ghouls-and-Ghosts.mid"
+    },
+    "Warp": {
+      "input": "short.mid"
+    },
+    "Dark World": {
+      "input": "ice-blocks.mid"
+    },
+    "Master Sword": {
+      "input": "short.mid"
+    },
+    "File Select": {
+      "input": "short.mid"
+    },
+    "Soldier": {
+      "input": "Tuba-and-Banjo.mid"
+    },
+    "Mountain": {
+      "input": "Mystic-Temple.mid"
+    },
+    "Shop": {
+      "input": "Puzzle-Blocks.mid"
+    },
+    "Fanfare": {
+      "input": "short.mid"
+    }
+  },
+  "indoor": {
+    "Castle": {
+      "input": "Minstrel.mid"
+    },
+    "Palace": {
+      "input": "lazy-waves.mid"
+    },
+    "Cave": {
+      "input": "spiritual.mid"
+    },
+    "Clear": {
+      "input": "short.mid"
+    },
+    "Church": {
+      "input": "polar-penguin.mid"
+    },
+    "Boss": {
+      "input": "Oddity-for-string-trio.mid"
+    },
+    "Dungeon": {
+      "input": "Pleasant-afternoon.mid"
+    },
+    "Psychic": {
+      "input": "Way-of-the-Dragon.mid"
+    },
+    "Secret Way": {
+      "input": "short.mid"
+    },
+    "Rescue": {
+      "input": "football-song.mid"
+    },
+    "Crystal": {
+      "input": "roman-march.mid"
+    },
+    "Fountain": {
+      "input": "sadness-in-the-rain.mid"
+    },
+    "Pyramid": {
+      "input": "short-hymn.mid"
+    },
+    "Kill Agahnim": {
+      "input": "short.mid"
+    },
+    "Ganon Room": {
+      "input": "not-mozart.mid"
+    },
+    "Last Boss": {
+      "input": "Pomp-March.mid"
+    }
+  },
+  "ending": {
+    "Triforce": {
+      "input": "Transwaltz.mid"
+    },
+    "Ending": {
+      "input": "Celtic-Romance-Piano.mid"
+    },
+    "Staff": {
+      "input": "variations-in-blue.mid"
+    }
+  }
+}

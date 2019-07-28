@@ -1,0 +1,193 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/kprevas/midi2spc/master/src/manifest.schema.json",
+  "title": "midi2spc manifest",
+  "description": "Manifest file for midi2spc utility",
+  "type": "object",
+  "properties": {
+    "overworld": {
+      "description": "List of songs in overworld bank",
+      "type": "object",
+      "properties": {
+        "Title": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "World Map": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Beginning": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Rabbit": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Forest": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Intro": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Town": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Warp": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Dark World": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Master Sword": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "File Select": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Soldier": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Mountain": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Shop": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Fanfare": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        }
+      },
+      "required": ["Title", "World Map", "Beginning", "Rabbit", "Forest", "Intro", "Town", "Warp", "Dark World", "Master Sword", "File Select", "Soldier", "Mountain", "Shop", "Fanfare"]
+    },
+    "indoor": {
+      "description": "List of songs in indoor bank",
+      "type": "object",
+      "properties": {
+        "Castle": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Palace": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Cave": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Clear": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Church": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Boss": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Dungeon": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Psychic": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Secret Way": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Rescue": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Crystal": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Fountain": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Pyramid": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Kill Agahnim": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Ganon Room": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Last Boss": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        }
+      },
+      "required": ["Castle", "Palace", "Cave", "Clear", "Church", "Boss", "Dungeon", "Psychic", "Secret Way", "Rescue", "Crystal", "Fountain", "Pyramid", "Kill Agahnim", "Ganon Room", "Last Boss"]
+    },
+    "ending": {
+      "description": "List of songs in ending bank",
+      "type": "object",
+      "properties": {
+        "Triforce": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Ending": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        },
+        "Staff": {
+          "type": "object",
+          "$ref": "#/definitions/song"
+        }
+      },
+      "required": ["Triforce", "Ending", "Staff"]
+    }
+  },
+  "required": [
+    "overworld",
+    "indoor",
+    "ending"
+  ],
+  "definitions": {
+    "song": {
+      "description": "Metadata for a single song",
+      "type": "object",
+      "properties": {
+        "input": {
+          "description": "Input file for a song",
+          "type": "string",
+          "pattern": ".*\\.(mid|json)"
+        },
+        "tempoAdjust": {
+          "description": "Tempo adjustment factor (default 0.3)",
+          "type": "number"
+        },
+        "loop": {
+          "description": "Whether to generate full-song looping",
+          "type": "boolean"
+        }
+      },
+      "required": ["input"]
+    }
+  }
+}
