@@ -1,6 +1,6 @@
 use byteorder::*;
 use failure::Error;
-use midi::MidiHandler;
+use crate::midi::MidiHandler;
 use std::fs::*;
 use std::io::{Cursor, Write};
 use std::path::*;

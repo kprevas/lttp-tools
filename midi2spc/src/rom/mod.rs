@@ -8,8 +8,8 @@ use std::io::{Cursor, SeekFrom};
 use std::path::Path;
 use std::thread;
 
-use manifest::*;
-use nspc::{CallLoopRef, Song};
+use crate::manifest::*;
+use crate::nspc::{CallLoopRef, Song};
 
 pub const DEFAULT_BANK_BASE_ADDRS: [u32; 3] = [0x914, 0x926, 0x932];
 const BANK_FIRST_SONG_ADDRS: [usize; 3] = [0xD036, 0xD046, 0xD046];

@@ -1,5 +1,3 @@
-extern crate failure;
-extern crate midi2spc;
 #[macro_use]
 extern crate clap;
 

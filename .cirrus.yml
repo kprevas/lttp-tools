@@ -1,4 +1,4 @@
 container:
   image: l.gcr.io/google/bazel:0.28.1
 task:
-  build_script: bazel build --linkopt=-B/usr/bin //textconvert:all //tilepatch:all
+  build_script: bazel build --linkopt=-B/usr/bin //textconvert:all //tilepatch:all //midi2spc:all
