@@ -4,7 +4,7 @@ use std::error::Error;
 use std::fs::*;
 use std::io::{Cursor, Write};
 use std::path::*;
-
+use serde_derive::{Serialize, Deserialize};
 use serde_json;
 
 mod command;

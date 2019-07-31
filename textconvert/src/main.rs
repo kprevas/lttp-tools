@@ -1,18 +1,8 @@
-extern crate bimap;
-#[macro_use]
-extern crate clap;
-extern crate itertools;
-#[macro_use]
-extern crate log;
-extern crate env_logger;
-extern crate regex;
-extern crate serde_json;
-extern crate simple_error;
-extern crate unicode_segmentation;
-
 use bimap::BiMap;
+use clap::clap_app;
 use clap::ArgMatches;
 use itertools::Itertools;
+use log::info;
 use regex::Regex;
 use serde_json::Value;
 use simple_error::SimpleError;

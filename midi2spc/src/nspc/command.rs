@@ -1,7 +1,7 @@
 use byteorder::*;
 use std::error::Error;
 use std::io::Cursor;
-
+use serde_derive::{Serialize, Deserialize};
 use super::CallLoopRef;
 
 #[cfg(test)]

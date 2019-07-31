@@ -1,6 +1,4 @@
-#[macro_use]
-extern crate clap;
-
+use clap::clap_app;
 use std::error::Error;
 
 fn main() -> Result<(), Box<Error>> {

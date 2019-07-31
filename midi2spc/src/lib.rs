@@ -1,13 +1,3 @@
-extern crate byteorder;
-extern crate clap;
-extern crate ghakuf;
-extern crate itertools;
-extern crate serde;
-extern crate serde_json;
-
-#[macro_use]
-extern crate serde_derive;
-
 use clap::ArgMatches;
 use std::error::Error;
 use std::num::ParseIntError;

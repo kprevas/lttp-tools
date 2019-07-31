@@ -1,6 +1,4 @@
-extern crate pbr;
-
-use self::pbr::*;
+use pbr::*;
 use simple_error::SimpleError;
 use std::error::Error;
 use std::fs::OpenOptions;

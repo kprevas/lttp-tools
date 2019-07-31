@@ -2,7 +2,7 @@ use ghakuf::messages::*;
 use simple_error::SimpleError;
 use std::error::Error;
 use std::io::Cursor;
-
+use serde_derive::{Serialize, Deserialize};
 use super::command::*;
 use super::instruments::*;
 use super::CallLoopRef;

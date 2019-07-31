@@ -1,16 +1,7 @@
-#[macro_use]
-extern crate clap;
-extern crate prefix_tree;
-#[macro_use]
-extern crate log;
-extern crate env_logger;
-extern crate itertools;
-extern crate png;
-extern crate simple_error;
-extern crate termion;
-
+use clap::clap_app;
 use clap::ArgMatches;
 use itertools::Itertools;
+use log::{debug, info};
 use simple_error::SimpleError;
 use std::collections::HashMap;
 use std::error::Error;
