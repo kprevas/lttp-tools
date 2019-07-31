@@ -1,16 +1,21 @@
-use clap::clap_app;
-use clap::ArgMatches;
+use clap::{
+    clap_app,
+    ArgMatches
+};
 use itertools::Itertools;
 use log::{debug, info};
+use nsasm::write_asm;
 use simple_error::SimpleError;
-use std::collections::HashMap;
-use std::error::Error;
-use std::fs::OpenOptions;
-use std::io::prelude::*;
-use std::io::{BufReader, BufWriter};
-use std::ops::Range;
-use std::path::Path;
-use std::str::FromStr;
+use std::{
+    io::prelude::*,
+    fs::OpenOptions,
+    error::Error,
+    collections::HashMap,
+    io::BufReader,
+    ops::Range,
+    path::Path,
+    str::FromStr
+};
 
 const CMD_COPY: u8 = 0;
 const CMD_BYTE_REPEAT: u8 = 1;
@@ -811,35 +816,6 @@ fn write_rom(
     Ok(())
 }
 
-fn write_asm(
-    sheet_data: &Vec<u8>,
-    sheet_start: usize,
-    output_asm_path: &str,
-    asm_module: &str,
-    asm_label: &str,
-) -> Result<(), Box<Error>> {
-    let file = OpenOptions::new()
-        .read(false)
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(output_asm_path)?;
-    let mut writer = BufWriter::new(&file);
-    writeln!(&mut writer, "        .module {}", asm_module)?;
-    writeln!(&mut writer)?;
-    writeln!(&mut writer, "        .org ${:06X}", pc_to_snes(sheet_start))?;
-    writeln!(&mut writer)?;
-    writeln!(&mut writer, "{}:", asm_label)?;
-    for line in &sheet_data.iter().chunks(8) {
-        writeln!(
-            &mut writer,
-            "        .db {}",
-            line.map(|byte| format!("${:02X}", byte)).join(", ")
-        )?;
-    }
-    Ok(())
-}
-
 fn parse_hex_arg(arg_matches: &ArgMatches, arg: &str, default: usize) -> Result<usize, Box<Error>> {
     Ok(arg_matches.value_of(arg).map_or(Ok(default), |arg| {
         usize::from_str_radix(arg.trim_start_matches("0x"), 16)
@@ -947,18 +923,19 @@ fn main() -> Result<(), Box<Error>> {
             );
             write_rom(&mut romdata, &compressed_sheet, sheet_start, rom_path)?;
         } else if let Some(asm_path) = patch.value_of("out_ASM") {
+            let asm_label = format!(
+                                "{}{}",
+                                patch
+                                    .value_of("asm_module")
+                                    .unwrap_or(DEFAULT_MODULE_PREFIX),
+                                sheet
+                            );
             write_asm(
-                &compressed_sheet,
-                sheet_start,
+                &vec!((&asm_label, compressed_sheet)),
                 asm_path,
-                &format!(
-                    "{}{}",
-                    patch
-                        .value_of("asm_module")
-                        .unwrap_or(DEFAULT_MODULE_PREFIX),
-                    sheet
-                ),
                 patch.value_of("asm_label").unwrap_or(DEFAULT_LABEL),
+                &format!("{:06X}", pc_to_snes(sheet_start)),
+                8,
             )?;
         }
     }
@@ -981,14 +958,15 @@ fn main() -> Result<(), Box<Error>> {
         if let Some(rom_path) = patch_link.value_of("out_ROM") {
             write_rom(&mut romdata, &compressed_sheet, sheet_start, rom_path)?;
         } else if let Some(asm_path) = patch_link.value_of("out_ASM") {
+            let asm_label = patch_link.value_of("asm_label").unwrap_or(DEFAULT_LABEL);
             write_asm(
-                &compressed_sheet,
-                sheet_start,
+                &vec!((asm_label, compressed_sheet)),
                 asm_path,
                 patch_link
                     .value_of("asm_module")
                     .unwrap_or(DEFAULT_LINK_MODULE),
-                patch_link.value_of("asm_label").unwrap_or(DEFAULT_LABEL),
+                &format!("{:06X}", pc_to_snes(sheet_start)),
+                8,
             )?;
         }
     }

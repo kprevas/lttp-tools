@@ -6,6 +6,7 @@ rust_binary(
     edition = "2018",
     visibility = ["//visibility:public"],
     deps = [
+        "//nsasm",
         "//tilepatch/cargo:clap",
         "//tilepatch/cargo:env_logger",
         "//tilepatch/cargo:itertools",

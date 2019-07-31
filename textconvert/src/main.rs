@@ -3,6 +3,7 @@ use clap::clap_app;
 use clap::ArgMatches;
 use itertools::Itertools;
 use log::info;
+use nsasm::write_asm;
 use regex::Regex;
 use serde_json::Value;
 use simple_error::SimpleError;
@@ -319,25 +320,10 @@ fn txt_to_asm(matches: &ArgMatches) -> Result<(), Box<Error>> {
         ))));
     }
     let array = array.unwrap();
+    let mut data = vec!();
 
-    let mut writer = BufWriter::new(File::create(matches.value_of("outfile").unwrap())?);
-    writeln!(
-        &mut writer,
-        "        .module {}",
-        matches.value_of("asm_module").unwrap_or(DEFAULT_MODULE)
-    )?;
-    writeln!(&mut writer)?;
-    writeln!(
-        &mut writer,
-        "        .org ${}",
-        matches.value_of("asm_addr").unwrap_or(DEFAULT_ADDR)
-    )?;
-    writeln!(&mut writer)?;
-    writeln!(
-        &mut writer,
-        "{}:",
-        matches.value_of("asm_label").unwrap_or(DEFAULT_LABEL)
-    )?;
+    let mut label = matches.value_of("asm_label").unwrap_or(DEFAULT_LABEL);
+    let mut bytes = vec!();
 
     let char_map = char_map();
     let directives = directives();
@@ -351,8 +337,10 @@ fn txt_to_asm(matches: &ArgMatches) -> Result<(), Box<Error>> {
             ))));
         }
         let entry_obj = entry_obj.unwrap();
-        if let Some(label) = entry_obj.get("asmLabel").and_then(|value| value.as_str()) {
-            writeln!(&mut writer, "{}:", label)?;
+        if let Some(new_label) = entry_obj.get("asmLabel").and_then(|value| value.as_str()) {
+            data.push((label, bytes));
+            label = new_label;
+            bytes = vec!();
         }
         let pause = entry_obj
             .get("pause")
@@ -389,7 +377,7 @@ fn txt_to_asm(matches: &ArgMatches) -> Result<(), Box<Error>> {
         } else {
             line_count = lines.len();
         }
-        let mut bytes = vec![0xFBu8];
+        bytes .push(0xFB);
         for line in lines {
             check_line_length(line)?;
             if pause && line_num > 0 && line_num % 3 == 0 && line_num < line_count {
@@ -433,17 +421,18 @@ fn txt_to_asm(matches: &ArgMatches) -> Result<(), Box<Error>> {
             }
             line_num += 1;
         }
-        writeln!(
-            &mut writer,
-            "        .db {}",
-            bytes
-                .iter()
-                .map(|byte| format!("${:02X}", byte))
-                .collect::<Vec<String>>()
-                .join(", ")
-        )?;
     }
-    writeln!(&mut writer, "        .db $FF, $FF")?;
+    bytes.push(0xFF);
+    bytes.push(0xFF);
+    data.push((label, bytes));
+
+    write_asm(
+        &data,
+        matches.value_of("outfile").unwrap(),
+        matches.value_of("asm_module").unwrap_or(DEFAULT_MODULE),
+        matches.value_of("asm_addr").unwrap_or(DEFAULT_ADDR),
+        8
+    )?;
     Ok(())
 }
 

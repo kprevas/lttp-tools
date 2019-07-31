@@ -6,6 +6,7 @@ rust_binary(
     edition = "2018",
     visibility = ["//visibility:public"],
     deps = [
+        "//nsasm",
         "//textconvert/cargo:bimap",
         "//textconvert/cargo:clap",
         "//textconvert/cargo:env_logger",
