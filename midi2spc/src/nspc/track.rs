@@ -1,5 +1,6 @@
-use failure::Error;
 use ghakuf::messages::*;
+use simple_error::SimpleError;
+use std::error::Error;
 use std::io::Cursor;
 
 use super::command::*;
@@ -89,7 +90,7 @@ impl Track {
         max_time: u32,
         tempo_factor: f32,
         voice: usize,
-    ) -> Result<Track, Error> {
+    ) -> Result<Track, Box<Error>> {
         let mut commands = Vec::new();
         let mut note_start: Option<u32> = None;
         let mut note_velocity = 0;
@@ -122,7 +123,8 @@ impl Track {
                             if let Some(start) = note_start {
                                 let duration =
                                     Track::get_duration(abs_time - start, ticks_per_beat, true);
-                                let push_as_tie = commands.last().map_or(false, |cmd| cmd.is_slide());
+                                let push_as_tie =
+                                    commands.last().map_or(false, |cmd| cmd.is_slide());
                                 commands.push(ParameterizedCommand::new(
                                     Some(if duration.overflow_count > 0 {
                                         0x7f
@@ -171,7 +173,7 @@ impl Track {
                                                 ticks_per_beat,
                                                 true,
                                             )
-                                                .length,
+                                            .length,
                                             note + 0x68,
                                         )
                                     });
@@ -179,7 +181,7 @@ impl Track {
                                 pitch_slide.map(|slide| commands.push(slide));
                             }
                             if note_start.is_some() {
-                                bail!("More than one voice needed on voice {}: notes start at {} and {}", voice, note_start.unwrap(), abs_time);
+                                return Err(Box::from(SimpleError::new(format!("More than one voice needed on voice {}: notes start at {} and {}", voice, note_start.unwrap(), abs_time))));
                             }
                             note_start = Some(last_note_end);
                             note_velocity = velocity;
@@ -221,7 +223,11 @@ impl Track {
                                 abs_time,
                                 ticks_per_beat,
                             );
-                            let instrument = if ch == 9 { program } else { INSTRUMENT_MAP[program as usize] };
+                            let instrument = if ch == 9 {
+                                program
+                            } else {
+                                INSTRUMENT_MAP[program as usize]
+                            };
                             commands.push(ParameterizedCommand::new(
                                 None,
                                 None,
@@ -273,7 +279,7 @@ impl Track {
         &self,
         out: &mut Cursor<Vec<u8>>,
         call_loops: &mut Vec<CallLoopRef>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Box<Error>> {
         let mut duration = 0xff;
         let mut velocity = None;
         for cmd in &self.commands {

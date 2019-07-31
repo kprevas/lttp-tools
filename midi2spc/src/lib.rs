@@ -6,12 +6,10 @@ extern crate serde;
 extern crate serde_json;
 
 #[macro_use]
-extern crate failure;
-#[macro_use]
 extern crate serde_derive;
 
 use clap::ArgMatches;
-use failure::Error;
+use std::error::Error;
 use std::num::ParseIntError;
 use std::path::Path;
 
@@ -20,7 +18,7 @@ pub mod midi;
 pub mod nspc;
 pub mod rom;
 
-pub fn run(matches: clap::ArgMatches) -> Result<(), Error> {
+pub fn run(matches: clap::ArgMatches) -> Result<(), Box<Error>> {
     let optimize = !matches.is_present("skip_optimization");
     let verbose = matches.is_present("verbose");
     if let Some(matches) = matches.subcommand_matches("build_rom") {
@@ -71,7 +69,7 @@ pub fn build_rom(
     bank_addrs: [u32; 3],
     optimize: bool,
     verbose: bool,
-) -> Result<(), Error> {
+) -> Result<(), Box<Error>> {
     let manifest = manifest::Manifest::new(Path::new(manifest_path))?;
     rom::write(
         &manifest,
@@ -89,7 +87,7 @@ pub fn write_all_overworld(
     bank_addrs: [u32; 3],
     optimize: bool,
     verbose: bool,
-) -> Result<(), Error> {
+) -> Result<(), Box<Error>> {
     rom::write_all_overworld(
         Path::new(input_path),
         Path::new(rom_path),
@@ -106,7 +104,7 @@ pub fn write_file_select(
     bank_addrs: [u32; 3],
     optimize: bool,
     verbose: bool,
-) -> Result<(), Error> {
+) -> Result<(), Box<Error>> {
     rom::write_file_select(
         Path::new(input_path),
         Path::new(rom_path),
@@ -117,7 +115,7 @@ pub fn write_file_select(
     Ok(())
 }
 
-fn converter(optimize: bool, verbose: bool) -> Box<Fn(&Path, f32) -> Result<nspc::Song, Error>> {
+fn converter(optimize: bool, verbose: bool) -> Box<Fn(&Path, f32) -> Result<nspc::Song, Box<Error>>> {
     let converter = move |path: &Path, tempo_factor| {
         if path.extension().map_or(false, |ext| ext.eq("mid")) {
             song_from_midi(path, tempo_factor, optimize, verbose)
@@ -128,7 +126,7 @@ fn converter(optimize: bool, verbose: bool) -> Box<Fn(&Path, f32) -> Result<nspc
     Box::new(converter)
 }
 
-fn read_bank_addrs(matches: &ArgMatches) -> Result<[u32; 3], Error> {
+fn read_bank_addrs(matches: &ArgMatches) -> Result<[u32; 3], Box<Error>> {
     match matches.values_of("bank_addrs") {
         None => Ok(rom::DEFAULT_BANK_BASE_ADDRS),
         Some(values) => {
@@ -136,7 +134,7 @@ fn read_bank_addrs(matches: &ArgMatches) -> Result<[u32; 3], Error> {
             let vec: Result<Vec<u32>, ParseIntError> = parsed.collect();
             match vec {
                 Ok(vec) => Ok([vec[0], vec[1], vec[2]]),
-                Err(err) => Err(Error::from(err)),
+                Err(err) => Err(Box::new(err)),
             }
         }
     }
@@ -147,7 +145,7 @@ fn song_from_midi(
     tempo_factor: f32,
     optimize: bool,
     verbose: bool,
-) -> Result<nspc::Song, Error> {
+) -> Result<nspc::Song, Box<Error>> {
     let mut midi = midi::MidiHandler::new();
     midi.read(path, verbose)?;
     nspc::Song::from_midi(&midi, tempo_factor, optimize, verbose)

@@ -1,18 +1,13 @@
-use failure::Error;
+use super::nspc::instruments::*;
 use ghakuf::messages::*;
 use ghakuf::reader::*;
 use itertools::*;
+use simple_error::SimpleError;
 use std::collections::HashMap;
+use std::error::Error;
 use std::path::Path;
-use super::nspc::instruments::*;
 
 const SNARE_NOTE: u8 = 68;
-
-#[derive(Debug, Fail)]
-enum MidiError {
-    #[fail(display = "{}: Couldn't fit notes into available channels", path)]
-    CouldntFit { path: String },
-}
 
 fn channel(event: &MidiEvent) -> usize {
     match *event {
@@ -141,20 +136,27 @@ impl MidiHandler {
         }
     }
 
-    pub fn read(&mut self, path: &Path, verbose: bool) -> Result<(), Error> {
+    pub fn read(&mut self, path: &Path, verbose: bool) -> Result<(), Box<Error>> {
         if verbose {
             println!("reading {:?}", path);
         }
         {
-            let mut midi_reader =
-                Reader::new(self, path).map_err(|err| format_err!("MIDI read error: {:?}", err))?;
-            midi_reader
-                .read()
-                .map_err(|err| format_err!("MIDI read error: {:?}", err))?;
+            let mut midi_reader = Reader::new(self, path).map_err(|err| {
+                Box::new(SimpleError::new(format!(
+                    "MIDI read error: {:?}",
+                    err
+                )))
+            })?;
+            midi_reader.read().map_err(|err| {
+                Box::new(SimpleError::new(format!(
+                    "MIDI read error: {:?}",
+                    err
+                )))
+            })?;
         }
         self.tracks_to_channels(verbose);
-        for (i, mut channel) in &mut self.channels.iter_mut().enumerate() {
-            let mut intervals = &mut channel.intervals;
+        for (i, channel) in &mut self.channels.iter_mut().enumerate() {
+            let intervals = &mut channel.intervals;
             let mut last_interval_end = 0u32;
             let mut active_voices = 0usize;
             for message in &channel.messages {
@@ -194,7 +196,7 @@ impl MidiHandler {
                         if abs_time > self.max_time {
                             self.max_time = abs_time;
                         }
-                    },
+                    }
                     _ => {}
                 }
             }
@@ -256,7 +258,7 @@ impl MidiHandler {
         active_base_intervals: &Vec<Vec<VoiceInterval>>,
         path: &Path,
         verbose: bool,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Box<Error>> {
         if channel_idx == self.channels.len() {
             return Ok(());
         }
@@ -304,9 +306,10 @@ impl MidiHandler {
                 Err(_) => (),
             }
         }
-        Err(Error::from(MidiError::CouldntFit {
-            path: path.to_str().unwrap().to_owned(),
-        }))
+        Err(Box::from(SimpleError::new(format!(
+            "{}: couldn't fit notes into available channels",
+            path.to_str().unwrap().to_owned()
+        ))))
     }
 
     fn overlapping_interval(
@@ -327,7 +330,7 @@ impl MidiHandler {
         None
     }
 
-    fn channels_to_voices(&mut self, path: &Path, verbose: bool) -> Result<(), Error> {
+    fn channels_to_voices(&mut self, path: &Path, verbose: bool) -> Result<(), Box<Error>> {
         let channels = &self.channels;
         let mut last_abs_time: Vec<u32> = Vec::new();
         let mut curr_event_idx: Vec<usize> = Vec::new();
@@ -400,14 +403,21 @@ impl MidiHandler {
                         if active_notes[ch].contains_key(&note) {
                             let voice = active_notes[ch].remove(&note).unwrap();
                             if ch == 9 {
-                                self.voices[voice].messages.push((Message::MidiEvent {
-                                    delta_time,
-                                    event: MidiEvent::NoteOff {
-                                        ch: ch as u8,
-                                        note: if note == 38 || note == 40 { SNARE_NOTE } else { note },
-                                        velocity,
-                                    }
-                                }, abs_time))
+                                self.voices[voice].messages.push((
+                                    Message::MidiEvent {
+                                        delta_time,
+                                        event: MidiEvent::NoteOff {
+                                            ch: ch as u8,
+                                            note: if note == 38 || note == 40 {
+                                                SNARE_NOTE
+                                            } else {
+                                                note
+                                            },
+                                            velocity,
+                                        },
+                                    },
+                                    abs_time,
+                                ))
                             } else {
                                 self.voices[voice].messages.push(next_event.clone());
                             }
@@ -451,9 +461,9 @@ impl MidiHandler {
                                         .map(|channel| channel.base_voice)
                                         .any(|voice| voice == possible_voice)
                                         && !active_notes
-                                            .iter()
-                                            .flat_map(|active_note| active_note.values())
-                                            .any(|&voice| voice == possible_voice)
+                                        .iter()
+                                        .flat_map(|active_note| active_note.values())
+                                        .any(|&voice| voice == possible_voice)
                                     {
                                         if verbose {
                                             println!("using {}", possible_voice);
@@ -465,23 +475,38 @@ impl MidiHandler {
                             } else {
                                 next_voice = Some(base_voice);
                             }
-                            let next_voice = next_voice.ok_or(MidiError::CouldntFit {
-                                path: path.to_str().unwrap().to_owned(),
-                            })?;
+                            let next_voice =
+                                next_voice.ok_or(Box::new(SimpleError::new(format!(
+                                    "{}: couldn't fit notes into available channels",
+                                    path.to_str().unwrap().to_owned()
+                                ))))?;
 
                             active_notes[ch].insert(note, next_voice);
                             let messages = &mut self.voices[next_voice].messages;
                             if ch != last_channel_per_voice[next_voice].unwrap_or(0xff) {
-                                last_ctrl_change_per_channel.get(ch).unwrap().as_ref()
+                                last_ctrl_change_per_channel
+                                    .get(ch)
+                                    .unwrap()
+                                    .as_ref()
                                     .map(|event| messages.push((event.clone(), abs_time)));
-                                last_prog_change_per_channel.get(ch).unwrap().as_ref()
+                                last_prog_change_per_channel
+                                    .get(ch)
+                                    .unwrap()
+                                    .as_ref()
                                     .map(|event| messages.push((event.clone(), abs_time)));
-                                last_pitch_bend_per_channel.get(ch).unwrap().as_ref()
+                                last_pitch_bend_per_channel
+                                    .get(ch)
+                                    .unwrap()
+                                    .as_ref()
                                     .map(|event| messages.push((event.clone(), abs_time)));
                                 last_channel_per_voice[next_voice] = Some(ch);
                             };
                             if ch == 9 {
-                                let instr = if note == 38 || note == 40 { SNARE } else { CYMBAL };
+                                let instr = if note == 38 || note == 40 {
+                                    SNARE
+                                } else {
+                                    CYMBAL
+                                };
                                 if last_percussion_instr != instr {
                                     let prog_change = (
                                         Message::MidiEvent {
@@ -489,22 +514,29 @@ impl MidiHandler {
                                             event: MidiEvent::ProgramChange {
                                                 ch: ch as u8,
                                                 program: instr,
-                                            }
+                                            },
                                         },
-                                        abs_time
+                                        abs_time,
                                     );
                                     last_prog_change_per_channel[ch] = Some(prog_change.0.clone());
                                     messages.push(prog_change);
                                     last_percussion_instr = instr;
                                 }
-                                messages.push((Message::MidiEvent {
-                                    delta_time,
-                                    event: MidiEvent::NoteOn {
-                                        ch: ch as u8,
-                                        note: if note == 38 || note == 40 { SNARE_NOTE } else { note },
-                                        velocity,
-                                    }
-                                }, abs_time))
+                                messages.push((
+                                    Message::MidiEvent {
+                                        delta_time,
+                                        event: MidiEvent::NoteOn {
+                                            ch: ch as u8,
+                                            note: if note == 38 || note == 40 {
+                                                SNARE_NOTE
+                                            } else {
+                                                note
+                                            },
+                                            velocity,
+                                        },
+                                    },
+                                    abs_time,
+                                ))
                             } else {
                                 messages.push(next_event.clone());
                             }

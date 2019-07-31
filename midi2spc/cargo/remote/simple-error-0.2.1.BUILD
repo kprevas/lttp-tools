@@ -25,7 +25,7 @@ load(
 
 
 rust_library(
-    name = "cc",
+    name = "simple_error",
     crate_root = "src/lib.rs",
     crate_type = "lib",
     edition = "2015",
@@ -35,29 +35,8 @@ rust_library(
     rustc_flags = [
         "--cap-lints=allow",
     ],
-    version = "1.0.28",
+    version = "0.2.1",
     crate_features = [
     ],
 )
 
-# Unsupported target "cc_env" with type "test" omitted
-rust_binary(
-    # Prefix bin name to disambiguate from (probable) collision with lib name
-    # N.B.: The exact form of this is subject to change.
-    name = "cargo_bin_gcc_shim",
-    crate_root = "src/bin/gcc-shim.rs",
-    edition = "2015",
-    srcs = glob(["**/*.rs"]),
-    deps = [
-        # Binaries get an implicit dependency on their crate's lib
-        ":cc",
-    ],
-    rustc_flags = [
-        "--cap-lints=allow",
-    ],
-    version = "1.0.28",
-    crate_features = [
-    ],
-)
-
-# Unsupported target "test" with type "test" omitted

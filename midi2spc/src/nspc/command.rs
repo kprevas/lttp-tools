@@ -1,5 +1,5 @@
 use byteorder::*;
-use failure::Error;
+use std::error::Error;
 use std::io::Cursor;
 
 use super::CallLoopRef;
@@ -129,7 +129,7 @@ impl Command {
         &self,
         out: &mut Cursor<Vec<u8>>,
         call_loops: &mut Vec<CallLoopRef>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Box<Error>> {
         match *self {
             Command::Note(note) => {
                 out.write_u8(note)?;
@@ -303,7 +303,7 @@ impl ParameterizedCommand {
         prev_duration: u8,
         prev_velocity_sustain: Option<u8>,
         call_loops: &mut Vec<CallLoopRef>,
-    ) -> Result<(u8, Option<u8>), Error> {
+    ) -> Result<(u8, Option<u8>), Box<Error>> {
         let mut duration_out = prev_duration;
         let mut velocity_sustain_out = prev_velocity_sustain;
         let mut duration_to_write = None;

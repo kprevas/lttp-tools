@@ -39,19 +39,16 @@ rust_library(
     version = "0.3.6",
     crate_features = [
         "consoleapi",
-        "dbghelp",
         "errhandlingapi",
         "minwinbase",
         "minwindef",
         "ntdef",
         "processenv",
-        "processthreadsapi",
         "profileapi",
         "std",
         "sysinfoapi",
         "timezoneapi",
         "winbase",
-        "winnt",
     ],
 )
 

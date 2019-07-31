@@ -44,7 +44,6 @@ rust_library(
         "clone-impls",
         "default",
         "derive",
-        "extra-traits",
         "parsing",
         "printing",
         "proc-macro",

@@ -1,7 +1,8 @@
 extern crate pbr;
 
 use self::pbr::*;
-use failure::Error;
+use simple_error::SimpleError;
+use std::error::Error;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::io::{Cursor, SeekFrom};
@@ -64,9 +65,9 @@ pub fn write(
     manifest: &Manifest,
     path: &Path,
     bank_base_addrs: [u32; 3],
-    converter: &Fn(&Path, f32) -> Result<Song, Error>,
+    converter: &Fn(&Path, f32) -> Result<Song, Box<Error>>,
     verbose: bool,
-) -> Result<(), Error> {
+) -> Result<(), Box<Error>> {
     let mut file = OpenOptions::new().read(true).write(true).open(path)?;
     let mut romdata = Vec::new();
     file.read_to_end(&mut romdata)?;
@@ -98,7 +99,7 @@ pub fn write(
 
     manifest.banks.iter().enumerate().fold(
         Ok(0),
-        |first_song_result: Result<usize, Error>, (i, bank)| {
+        |first_song_result: Result<usize, Box<Error>>, (i, bank)| {
             first_song_result.and_then(|first_song| {
                 songs_pb.message(&format!("Writing {} songs ", bank.name));
                 write_bank(
@@ -131,11 +132,11 @@ fn write_bank(
     base_addr: u32,
     first_song_addr: usize,
     first_song: usize,
-    converter: &Fn(&Path, f32) -> Result<Song, Error>,
+    converter: &Fn(&Path, f32) -> Result<Song, Box<Error>>,
     songs_pb: &mut ProgressBar<Pipe>,
     bank_pb: &mut ProgressBar<Pipe>,
     verbose: bool,
-) -> Result<(), Error> {
+) -> Result<(), Box<Error>> {
     // find chunk going to ARAM D000
     let bank_addr = romdata[snes_to_pc_addr(base_addr + 8)];
     let high_addr = romdata[snes_to_pc_addr(base_addr + 4)];
@@ -162,16 +163,18 @@ fn write_bank(
         }
         addr = chunk.offset_addr + chunk.length;
     }
-    ensure!(
-        base_chunk_addr != 0,
-        "Couldn't find base chunk for {} bank",
-        bank.name
-    );
-    ensure!(
-        overflow_chunk_addr != 0,
-        "Couldn't find overflow chunk for {} bank",
-        bank.name
-    );
+    if base_chunk_addr == 0 {
+        return Err(Box::from(SimpleError::new(format!(
+            "Couldn't find base chunk for {} bank",
+            bank.name
+        ))));
+    }
+    if overflow_chunk_addr == 0 {
+        return Err(Box::from(SimpleError::new(format!(
+            "Couldn't find overflow chunk for {} bank",
+            bank.name
+        ))));
+    }
     let mut rom_addr = base_chunk_addr;
     let mut chunk_length = base_chunk_len;
     let mut aram_base_addr = ARAM_BASE;
@@ -210,11 +213,12 @@ fn write_bank(
 
         // check if non-track data fits in chunk
         if song_offset + (if song_def.loops { 8 } else { 4 }) + 16 > chunk_length {
-            ensure!(
-                aram_base_addr != aram_overflow_base,
-                "{} bank does not fit in available chunks",
-                bank.name
-            );
+            if aram_base_addr == aram_overflow_base {
+                return Err(Box::from(SimpleError::new(format!(
+                    "{} bank does not fit in available chunks",
+                    bank.name
+                ))));
+            }
             if verbose {
                 println!(
                     "Switching to overflow chunk - data size before switch 0x{:X}",
@@ -284,11 +288,12 @@ fn write_bank(
 
             // check if track data fits in chunk
             if track_data_offset + track_data.len() > chunk_length {
-                ensure!(
-                    aram_base_addr != aram_overflow_base,
-                    "{} bank does not fit in available chunks",
-                    bank.name
-                );
+                if aram_base_addr == aram_overflow_base {
+                    return Err(Box::from(SimpleError::new(format!(
+                        "Couldn't find base chunk for {} bank",
+                        bank.name
+                    ))));
+                }
                 if verbose {
                     println!(
                         "Switching to overflow chunk - data size before switch 0x{:X}",
@@ -403,9 +408,9 @@ pub fn write_all_overworld(
     song_path: &Path,
     rom_path: &Path,
     bank_base_addrs: [u32; 3],
-    converter: &Fn(&Path, f32) -> Result<Song, Error>,
+    converter: &Fn(&Path, f32) -> Result<Song, Box<Error>>,
     verbose: bool,
-) -> Result<(), Error> {
+) -> Result<(), Box<Error>> {
     write(
         &Manifest::single_song(song_path),
         rom_path,
@@ -420,9 +425,9 @@ pub fn write_file_select(
     song_path: &Path,
     rom_path: &Path,
     bank_base_addrs: [u32; 3],
-    converter: &Fn(&Path, f32) -> Result<Song, Error>,
+    converter: &Fn(&Path, f32) -> Result<Song, Box<Error>>,
     verbose: bool,
-) -> Result<(), Error> {
+) -> Result<(), Box<Error>> {
     write(
         &Manifest::file_select(song_path),
         rom_path,
@@ -437,7 +442,7 @@ pub fn gen_fake_rom(
     rom_path: &Path,
     output_path: &Path,
     bank_base_addrs: [u32; 3],
-) -> Result<(), Error> {
+) -> Result<(), Box<Error>> {
     let mut rom_file = OpenOptions::new().read(true).open(rom_path)?;
     let mut romdata = Vec::new();
     rom_file.read_to_end(&mut romdata)?;

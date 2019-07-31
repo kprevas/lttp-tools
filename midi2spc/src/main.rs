@@ -1,9 +1,9 @@
 #[macro_use]
 extern crate clap;
 
-use failure::Error;
+use std::error::Error;
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), Box<Error>> {
     let matches = clap_app!(midi2spc =>
         (@setting SubcommandRequiredElseHelp)
         (@arg skip_optimization: -s --skip_optimization  "skips optimization of CallLoops")

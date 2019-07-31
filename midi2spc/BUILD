@@ -8,7 +8,6 @@ rust_binary(
     deps = [
         ":midi2spc",
         "//midi2spc/cargo:clap",
-        "//midi2spc/cargo:failure",
     ],
 )
 
@@ -23,12 +22,12 @@ rust_library(
     deps = [
         "//midi2spc/cargo:byteorder",
         "//midi2spc/cargo:clap",
-        "//midi2spc/cargo:failure",
         "//midi2spc/cargo:ghakuf",
         "//midi2spc/cargo:itertools",
         "//midi2spc/cargo:pbr",
         "//midi2spc/cargo:serde",
         "//midi2spc/cargo:serde_derive",
         "//midi2spc/cargo:serde_json",
+        "//midi2spc/cargo:simple_error",
     ],
 )

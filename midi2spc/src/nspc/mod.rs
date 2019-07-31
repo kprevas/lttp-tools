@@ -1,6 +1,6 @@
 use byteorder::*;
-use failure::Error;
 use crate::midi::MidiHandler;
+use std::error::Error;
 use std::fs::*;
 use std::io::{Cursor, Write};
 use std::path::*;
@@ -49,8 +49,8 @@ impl Song {
         tempo_factor: f32,
         optimize_loops: bool,
         verbose: bool,
-    ) -> Result<Song, Error> {
-        let tracks: Result<Vec<Track>, Error> = (0..8)
+    ) -> Result<Song, Box<Error>> {
+        let tracks: Result<Vec<Track>, Box<Error>> = (0..8)
             .filter_map(|voice| {
                 match Track::new(
                     midi.events_for_voice(voice),
@@ -166,7 +166,7 @@ impl Song {
         serde_json::to_writer_pretty(out, self).unwrap()
     }
 
-    pub fn empty() -> Result<Song, Error> {
+    pub fn empty() -> Result<Song, Box<Error>> {
         Ok(Song {
             parts: vec![Part { tracks: vec![0] }],
             tracks: vec![Track::new(&vec![], 24, 0, 0.3, 0)?],
@@ -186,7 +186,7 @@ impl Song {
         out: &mut Cursor<Vec<u8>>,
         track_idx: usize,
         call_loops: &mut Vec<CallLoopRef>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Box<Error>> {
         let track = &self.tracks[track_idx];
         if !track.commands.is_empty() {
             if self.parts.iter().any(|part| part.tracks[0] == track_idx) {

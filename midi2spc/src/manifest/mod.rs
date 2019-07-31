@@ -1,6 +1,6 @@
-use failure::Error;
 use serde_json;
 use serde_json::Value;
+use std::error::Error;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
@@ -109,7 +109,7 @@ pub struct Manifest {
 }
 
 impl Manifest {
-    pub fn new(path: &Path) -> Result<Manifest, Error> {
+    pub fn new(path: &Path) -> Result<Manifest, Box<Error>> {
         let reader = File::open(path)?;
         let json: Value = serde_json::from_reader(reader)?;
         let parent = path.parent().unwrap();

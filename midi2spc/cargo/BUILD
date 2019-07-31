@@ -17,10 +17,6 @@ alias(
     actual = "@raze__clap__2_32_0//:clap",
 )
 alias(
-    name = "failure",
-    actual = "@raze__failure__0_1_5//:failure",
-)
-alias(
     name = "ghakuf",
     actual = "@raze__ghakuf__0_5_1//:ghakuf",
 )
@@ -43,4 +39,8 @@ alias(
 alias(
     name = "serde_json",
     actual = "@raze__serde_json__1_0_35//:serde_json",
+)
+alias(
+    name = "simple_error",
+    actual = "@raze__simple_error__0_2_1//:simple_error",
 )

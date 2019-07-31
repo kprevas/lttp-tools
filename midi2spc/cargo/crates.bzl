@@ -35,33 +35,6 @@ def raze_fetch_remote_crates():
     )
 
     _new_http_archive(
-        name = "raze__autocfg__0_1_1",
-        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/autocfg/autocfg-0.1.1.crate",
-        type = "tar.gz",
-        sha256 = "4e5f34df7a019573fb8bdc7e24a2bfebe51a2a1d6bfdbaeccedb3c41fc574727",
-        strip_prefix = "autocfg-0.1.1",
-        build_file = Label("//midi2spc/cargo/remote:autocfg-0.1.1.BUILD")
-    )
-
-    _new_http_archive(
-        name = "raze__backtrace__0_3_13",
-        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/backtrace/backtrace-0.3.13.crate",
-        type = "tar.gz",
-        sha256 = "b5b493b66e03090ebc4343eb02f94ff944e0cbc9ac6571491d170ba026741eb5",
-        strip_prefix = "backtrace-0.3.13",
-        build_file = Label("//midi2spc/cargo/remote:backtrace-0.3.13.BUILD")
-    )
-
-    _new_http_archive(
-        name = "raze__backtrace_sys__0_1_28",
-        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/backtrace-sys/backtrace-sys-0.1.28.crate",
-        type = "tar.gz",
-        sha256 = "797c830ac25ccc92a7f8a7b9862bde440715531514594a6154e3d4a54dd769b6",
-        strip_prefix = "backtrace-sys-0.1.28",
-        build_file = Label("//midi2spc/cargo/remote:backtrace-sys-0.1.28.BUILD")
-    )
-
-    _new_http_archive(
         name = "raze__bitflags__1_0_4",
         url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/bitflags/bitflags-1.0.4.crate",
         type = "tar.gz",
@@ -77,15 +50,6 @@ def raze_fetch_remote_crates():
         sha256 = "94f88df23a25417badc922ab0f5716cc1330e87f71ddd9203b3a3ccd9cedf75d",
         strip_prefix = "byteorder-1.2.7",
         build_file = Label("//midi2spc/cargo/remote:byteorder-1.2.7.BUILD")
-    )
-
-    _new_http_archive(
-        name = "raze__cc__1_0_28",
-        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/cc/cc-1.0.28.crate",
-        type = "tar.gz",
-        sha256 = "bb4a8b715cb4597106ea87c7c84b2f1d452c7492033765df7f32651e66fcf749",
-        strip_prefix = "cc-1.0.28",
-        build_file = Label("//midi2spc/cargo/remote:cc-1.0.28.BUILD")
     )
 
     _new_http_archive(
@@ -113,24 +77,6 @@ def raze_fetch_remote_crates():
         sha256 = "3be565ca5c557d7f59e7cfcf1844f9e3033650c929c6566f511e8005f205c1d0",
         strip_prefix = "either-1.5.0",
         build_file = Label("//midi2spc/cargo/remote:either-1.5.0.BUILD")
-    )
-
-    _new_http_archive(
-        name = "raze__failure__0_1_5",
-        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/failure/failure-0.1.5.crate",
-        type = "tar.gz",
-        sha256 = "795bd83d3abeb9220f257e597aa0080a508b27533824adf336529648f6abf7e2",
-        strip_prefix = "failure-0.1.5",
-        build_file = Label("//midi2spc/cargo/remote:failure-0.1.5.BUILD")
-    )
-
-    _new_http_archive(
-        name = "raze__failure_derive__0_1_5",
-        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/failure_derive/failure_derive-0.1.5.crate",
-        type = "tar.gz",
-        sha256 = "ea1063915fd7ef4309e222a5a07cf9c319fb9c7836b1f89b85458672dbb127e1",
-        strip_prefix = "failure_derive-0.1.5",
-        build_file = Label("//midi2spc/cargo/remote:failure_derive-0.1.5.BUILD")
     )
 
     _new_http_archive(
@@ -242,15 +188,6 @@ def raze_fetch_remote_crates():
     )
 
     _new_http_archive(
-        name = "raze__rustc_demangle__0_1_13",
-        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/rustc-demangle/rustc-demangle-0.1.13.crate",
-        type = "tar.gz",
-        sha256 = "adacaae16d02b6ec37fdc7acfcddf365978de76d1983d3ee22afc260e1ca9619",
-        strip_prefix = "rustc-demangle-0.1.13",
-        build_file = Label("//midi2spc/cargo/remote:rustc-demangle-0.1.13.BUILD")
-    )
-
-    _new_http_archive(
         name = "raze__ryu__0_2_7",
         url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/ryu/ryu-0.2.7.crate",
         type = "tar.gz",
@@ -287,6 +224,15 @@ def raze_fetch_remote_crates():
     )
 
     _new_http_archive(
+        name = "raze__simple_error__0_2_1",
+        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/simple-error/simple-error-0.2.1.crate",
+        type = "tar.gz",
+        sha256 = "339844c9af2d844b9230bb28e8f819a7790cbf20a29b5cbd2b59916a03a1ef51",
+        strip_prefix = "simple-error-0.2.1",
+        build_file = Label("//midi2spc/cargo/remote:simple-error-0.2.1.BUILD")
+    )
+
+    _new_http_archive(
         name = "raze__strsim__0_7_0",
         url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/strsim/strsim-0.7.0.crate",
         type = "tar.gz",
@@ -302,15 +248,6 @@ def raze_fetch_remote_crates():
         sha256 = "734ecc29cd36e8123850d9bf21dfd62ef8300aaa8f879aabaa899721808be37c",
         strip_prefix = "syn-0.15.24",
         build_file = Label("//midi2spc/cargo/remote:syn-0.15.24.BUILD")
-    )
-
-    _new_http_archive(
-        name = "raze__synstructure__0_10_1",
-        url = "https://crates-io.s3-us-west-1.amazonaws.com/crates/synstructure/synstructure-0.10.1.crate",
-        type = "tar.gz",
-        sha256 = "73687139bf99285483c96ac0add482c3776528beac1d97d444f6e91f203a2015",
-        strip_prefix = "synstructure-0.10.1",
-        build_file = Label("//midi2spc/cargo/remote:synstructure-0.10.1.BUILD")
     )
 
     _new_http_archive(
