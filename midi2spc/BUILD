@@ -1,4 +1,4 @@
-load("@io_bazel_rules_rust//rust:rust.bzl", "rust_binary", "rust_library")
+load("@io_bazel_rules_rust//rust:rust.bzl", "rust_binary", "rust_library", "rust_test")
 
 rust_binary(
     name = "midi2spc_bin",
@@ -30,4 +30,10 @@ rust_library(
         "//midi2spc/cargo:serde_json",
         "//midi2spc/cargo:simple_error",
     ],
+)
+
+rust_test(
+    name = "midi2spc_unit_tests",
+    crate = ":midi2spc",
+    size = "small",
 )
