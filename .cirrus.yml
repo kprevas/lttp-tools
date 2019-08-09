@@ -1,5 +1,5 @@
 container:
   image: l.gcr.io/google/bazel:0.28.1
 task:
-  build_script: bazel build --linkopt=-B/usr/bin //textconvert:all //tilepatch:all //midi2spc:all
-  test_script: bazel test //textconvert:all //tilepatch:all //midi2spc:all
+  build_script: bazel build --remote_http_cache=http://$CIRRUS_HTTP_CACHE_HOST --linkopt=-B/usr/bin //textconvert:all //tilepatch:all //midi2spc:all
+  test_script: bazel test --remote_http_cache=http://$CIRRUS_HTTP_CACHE_HOST //textconvert:all //tilepatch:all //midi2spc:all
