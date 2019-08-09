@@ -37,3 +37,11 @@ rust_test(
     crate = ":midi2spc",
     size = "small",
 )
+
+rust_test(
+    name = "midi2spc_integration_tests",
+    srcs = ["tests/test.rs"],
+    deps = [":midi2spc"],
+    data = glob(["sample/*"]),
+    size = "medium",
+)

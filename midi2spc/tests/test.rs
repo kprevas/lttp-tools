@@ -7,6 +7,9 @@ use std::path::PathBuf;
 
 fn sample_path(filename: &str) -> PathBuf {
     let mut path_buf = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    if fs::read_dir(path_buf.clone()).is_err() {
+        path_buf = PathBuf::from("midi2spc");
+    }
     path_buf.push("sample");
     path_buf.push(filename);
     path_buf
