@@ -1,20 +1,11 @@
-use clap::{
-    clap_app,
-    ArgMatches
-};
+use clap::{clap_app, ArgMatches};
 use itertools::Itertools;
 use log::{debug, info};
 use nsasm::write_asm;
 use simple_error::SimpleError;
 use std::{
-    io::prelude::*,
-    fs::OpenOptions,
-    error::Error,
-    collections::HashMap,
-    io::BufReader,
-    ops::Range,
-    path::Path,
-    str::FromStr
+    collections::HashMap, error::Error, fs::OpenOptions, io::prelude::*, io::BufReader, ops::Range,
+    path::Path, str::FromStr,
 };
 
 const CMD_COPY: u8 = 0;
@@ -31,10 +22,16 @@ const DEFAULT_EXPANDED_TILES_SIZE: usize = 0x1000;
 const BANK_TABLE_SNES_ADDR: usize = 0xCF80;
 const HI_TABLE_SNES_ADDR: usize = 0xD05F;
 const LO_TABLE_SNES_ADDR: usize = 0xD13E;
+const LINK_SHEET_ADDR: usize = 0x080000;
 
 const BPP4_SHEET_LEN: usize = 0x7000;
 const BPP3_SHEET_LEN: usize = 0x600;
 const BPP2_SHEET_LEN: usize = 0x800;
+
+const SHEET_WIDTH: usize = 128;
+const BPP4_SHEET_HEIGHT: usize = 448;
+const BPP3_SHEET_HEIGHT: usize = 32;
+const BPP2_SHEET_HEIGHT: usize = 64;
 
 const _SHEETS_BG_TILES: Range<usize> = 0..113;
 const SHEETS_HUD: Range<usize> = 113..115;
@@ -230,13 +227,17 @@ fn maybe_write_direct_copy(out: &mut Vec<u8>, direct_copy: &mut Vec<u8>) {
     }
 }
 
-fn compress_sheet(sheet_data: &Vec<u8>, swap_copy_cmd: bool) -> Vec<u8> {
+fn compress_sheet(
+    sheet_data: &Vec<u8>,
+    swap_copy_cmd: bool,
+    max_copy_existing_len: usize,
+) -> Vec<u8> {
     info!("compress sheet");
     let mut out = vec![];
 
     let mut prefix_tree = prefix_tree::Tree::new();
     for start in 0..sheet_data.len() - 4 {
-        for end in start + 4..std::cmp::min(sheet_data.len(), start + MAX_COPY_EXISTING_LEN) {
+        for end in start + 4..std::cmp::min(sheet_data.len(), start + max_copy_existing_len) {
             prefix_tree.insert(&sheet_data[start..end], start);
         }
     }
@@ -413,7 +414,7 @@ fn compress_sheet(sheet_data: &Vec<u8>, swap_copy_cmd: bool) -> Vec<u8> {
 }
 
 fn bpp4_sheet_to_pixels(sheet: &Vec<u8>) -> Vec<Vec<u8>> {
-    let mut out = vec![vec![0; 128]; 448];
+    let mut out = vec![vec![0; SHEET_WIDTH]; BPP4_SHEET_HEIGHT];
     for tile_y in 0..56 {
         for tile_x in 0..16 {
             for byte_pos in 0..32 {
@@ -432,7 +433,7 @@ fn bpp4_sheet_to_pixels(sheet: &Vec<u8>) -> Vec<Vec<u8>> {
 }
 
 fn bpp3_sheet_to_pixels(sheet: &Vec<u8>) -> Vec<Vec<u8>> {
-    let mut out = vec![vec![0; 128]; 32];
+    let mut out = vec![vec![0; SHEET_WIDTH]; BPP3_SHEET_HEIGHT];
     for tile_y in 0..4 {
         for tile_x in 0..16 {
             for px_y in 0..8 {
@@ -472,7 +473,7 @@ fn bpp3_sheet_to_pixels(sheet: &Vec<u8>) -> Vec<Vec<u8>> {
 }
 
 fn bpp2_sheet_to_pixels(sheet: &Vec<u8>) -> Vec<Vec<u8>> {
-    let mut out = vec![vec![0; 128]; 64];
+    let mut out = vec![vec![0; SHEET_WIDTH]; BPP2_SHEET_HEIGHT];
     for tile_y in 0..8 {
         for tile_x in 0..16 {
             for px_y in 0..8 {
@@ -642,7 +643,12 @@ fn load_sheet_raw(
     (sheet_addr, sheet_data)
 }
 
-fn compress_sheet_data(bpp: usize, compressed: bool, sheet_data: &mut Vec<Vec<u8>>) -> Vec<u8> {
+fn compress_sheet_data(
+    bpp: usize,
+    compressed: bool,
+    sheet_data: &mut Vec<Vec<u8>>,
+    max_copy_existing_len: usize,
+) -> Vec<u8> {
     let out_sheet = match bpp {
         2 => pixels_to_bpp2_sheet(&sheet_data),
         3 => pixels_to_bpp3_sheet(&sheet_data),
@@ -651,7 +657,7 @@ fn compress_sheet_data(bpp: usize, compressed: bool, sheet_data: &mut Vec<Vec<u8
     };
     let compressed_sheet;
     if compressed {
-        compressed_sheet = compress_sheet(&out_sheet, true);
+        compressed_sheet = compress_sheet(&out_sheet, true, max_copy_existing_len);
     } else {
         compressed_sheet = out_sheet;
     }
@@ -822,6 +828,18 @@ fn parse_hex_arg(arg_matches: &ArgMatches, arg: &str, default: usize) -> Result<
     })?)
 }
 
+fn create_dummy_sheet(height: usize) -> Vec<Vec<u8>> {
+    let mut sheet_data = vec![];
+    for _ in 0..height {
+        let mut row = vec![];
+        for _ in 0..SHEET_WIDTH {
+            row.push(0);
+        }
+        sheet_data.push(row);
+    }
+    sheet_data
+}
+
 fn main() -> Result<(), Box<Error>> {
     env_logger::init();
 
@@ -867,6 +885,9 @@ fn main() -> Result<(), Box<Error>> {
             (@arg uncompressed: --uncompressed "don't try to decompress data")
             (@arg bpp: --bpp +required +takes_value "bits per pixel")
         )
+        (@subcommand dummy_rom =>
+            (about: "Generates dummy ROM at input ROM path")
+        )
     )
         .get_matches();
 
@@ -875,44 +896,15 @@ fn main() -> Result<(), Box<Error>> {
     let hi_table_addr = parse_hex_arg(&matches, "hitable", HI_TABLE_SNES_ADDR)? as u32;
     let lo_table_addr = parse_hex_arg(&matches, "lotable", LO_TABLE_SNES_ADDR)? as u32;
 
-    let mut file = OpenOptions::new()
-        .read(true)
-        .write(false)
-        .open(input_rom_path)?;
-    let mut romdata = Vec::new();
-    file.read_to_end(&mut romdata)?;
-
-    if let Some(patch) = matches.subcommand_matches("patch") {
-        let sheet = usize::from_str(patch.value_of("sheet").unwrap())?;
-        let exp_start =
-            parse_hex_arg(&patch, "expanded_tiles_start", DEFAULT_EXPANDED_TILES_START)?;
-        let exp_size = parse_hex_arg(&patch, "expanded_tiles_size", DEFAULT_EXPANDED_TILES_SIZE)?;
-        let sheet_start = exp_start + (exp_size * sheet);
-
-        let (_, mut sheet_data) = load_sheet(
-            bank_table_addr,
-            hi_table_addr,
-            lo_table_addr,
-            &romdata,
-            sheet,
-        );
-        if let Some(manifest_path) = patch.value_of("in_manifest") {
-            patch_manifest(&mut sheet_data, manifest_path, palette_size(sheet))?;
-        } else {
-            patch_tile(
-                &mut sheet_data,
-                &Path::new(patch.value_of("in_png").unwrap()),
-                palette_size(sheet),
-                usize::from_str(patch.value_of("x").unwrap())?,
-                usize::from_str(patch.value_of("y").unwrap())?,
-            )?;
-        }
-        let compressed_sheet = compress_sheet_data(
-            if is_3bpp(sheet) { 3 } else { 2 },
-            is_compressed(sheet),
-            &mut sheet_data,
-        );
-        if let Some(rom_path) = patch.value_of("out_ROM") {
+    if let Some(_) = matches.subcommand_matches("dummy_rom") {
+        let mut file = OpenOptions::new()
+            .read(false)
+            .write(true)
+            .create(true)
+            .open(input_rom_path)?;
+        let mut romdata = vec![0; 2097152];
+        for sheet in 0..SHEETS_MAX {
+            let sheet_start = DEFAULT_EXPANDED_TILES_START + sheet * DEFAULT_EXPANDED_TILES_SIZE;
             put_gfx_address(
                 sheet,
                 &mut romdata,
@@ -921,75 +913,153 @@ fn main() -> Result<(), Box<Error>> {
                 lo_table_addr,
                 sheet_start,
             );
-            write_rom(&mut romdata, &compressed_sheet, sheet_start, rom_path)?;
-        } else if let Some(asm_path) = patch.value_of("out_ASM") {
-            let asm_label = format!(
-                                "{}{}",
-                                patch
-                                    .value_of("asm_module")
-                                    .unwrap_or(DEFAULT_MODULE_PREFIX),
-                                sheet
-                            );
-            write_asm(
-                &vec!((&asm_label, compressed_sheet)),
-                asm_path,
-                patch.value_of("asm_label").unwrap_or(DEFAULT_LABEL),
-                &format!("{:06X}", pc_to_snes(sheet_start)),
-                8,
-            )?;
+            let compressed_sheet = compress_sheet_data(
+                if is_3bpp(sheet) { 3 } else { 2 },
+                is_compressed(sheet),
+                &mut create_dummy_sheet(if is_3bpp(sheet) {
+                    BPP3_SHEET_HEIGHT
+                } else {
+                    BPP2_SHEET_HEIGHT
+                }),
+                10,
+            );
+            romdata.splice(
+                sheet_start..sheet_start + compressed_sheet.len(),
+                compressed_sheet.iter().cloned(),
+            );
         }
-    }
-    if let Some(patch_link) = matches.subcommand_matches("patch_link") {
-        let sheet_start = parse_hex_arg(&patch_link, "sheet_addr", 0x080000)?;
-
-        let (_, mut sheet_data) = load_sheet_raw(&romdata, sheet_start, 4, false, BPP4_SHEET_LEN);
-        if let Some(manifest_path) = patch_link.value_of("in_manifest") {
-            patch_manifest(&mut sheet_data, manifest_path, 16)?;
-        } else {
-            patch_tile(
-                &mut sheet_data,
-                &Path::new(patch_link.value_of("in_png").unwrap()),
-                16,
-                usize::from_str(patch_link.value_of("x").unwrap())?,
-                usize::from_str(patch_link.value_of("y").unwrap())?,
-            )?;
-        }
-        let compressed_sheet = compress_sheet_data(4, false, &mut sheet_data);
-        if let Some(rom_path) = patch_link.value_of("out_ROM") {
-            write_rom(&mut romdata, &compressed_sheet, sheet_start, rom_path)?;
-        } else if let Some(asm_path) = patch_link.value_of("out_ASM") {
-            let asm_label = patch_link.value_of("asm_label").unwrap_or(DEFAULT_LABEL);
-            write_asm(
-                &vec!((asm_label, compressed_sheet)),
-                asm_path,
-                patch_link
-                    .value_of("asm_module")
-                    .unwrap_or(DEFAULT_LINK_MODULE),
-                &format!("{:06X}", pc_to_snes(sheet_start)),
-                8,
-            )?;
-        }
-    }
-    if let Some(dump) = matches.subcommand_matches("dump") {
-        dump_sheets(
-            bank_table_addr,
-            hi_table_addr,
-            lo_table_addr,
-            &mut romdata,
-            dump.value_of("sheet")
-                .map(|arg| usize::from_str(arg))
-                .map_or(Ok(None), |v| v.map(Some))?,
-        )
-    }
-    if let Some(dump_raw) = matches.subcommand_matches("dump_raw") {
-        let (sheet_addr, sheet_data) = load_sheet_raw(
-            &romdata,
-            parse_hex_arg(dump_raw, "sheet_addr", 0)?,
-            usize::from_str(dump_raw.value_of("bpp").unwrap()).unwrap(),
-            !dump_raw.is_present("uncompressed"),
-            parse_hex_arg(dump_raw, "sheet_len", BPP3_SHEET_LEN)?,
+        let compressed_link_sheet = compress_sheet_data(
+            4,
+            false,
+            &mut create_dummy_sheet(BPP4_SHEET_HEIGHT),
+            MAX_COPY_EXISTING_LEN,
         );
-        dump_sheet(0, &sheet_data, sheet_addr);
+        romdata.splice(
+            LINK_SHEET_ADDR..LINK_SHEET_ADDR + compressed_link_sheet.len(),
+            compressed_link_sheet.iter().cloned(),
+        );
+        file.write_all(romdata.as_slice())?;
+    } else {
+        let mut file = OpenOptions::new()
+            .read(true)
+            .write(false)
+            .open(input_rom_path)?;
+        let mut romdata = Vec::new();
+        file.read_to_end(&mut romdata)?;
+
+        if let Some(patch) = matches.subcommand_matches("patch") {
+            let sheet = usize::from_str(patch.value_of("sheet").unwrap())?;
+            let exp_start =
+                parse_hex_arg(&patch, "expanded_tiles_start", DEFAULT_EXPANDED_TILES_START)?;
+            let exp_size =
+                parse_hex_arg(&patch, "expanded_tiles_size", DEFAULT_EXPANDED_TILES_SIZE)?;
+            let sheet_start = exp_start + (exp_size * sheet);
+
+            let (_, mut sheet_data) = load_sheet(
+                bank_table_addr,
+                hi_table_addr,
+                lo_table_addr,
+                &romdata,
+                sheet,
+            );
+            if let Some(manifest_path) = patch.value_of("in_manifest") {
+                patch_manifest(&mut sheet_data, manifest_path, palette_size(sheet))?;
+            } else {
+                patch_tile(
+                    &mut sheet_data,
+                    &Path::new(patch.value_of("in_png").unwrap()),
+                    palette_size(sheet),
+                    usize::from_str(patch.value_of("x").unwrap())?,
+                    usize::from_str(patch.value_of("y").unwrap())?,
+                )?;
+            }
+            let compressed_sheet = compress_sheet_data(
+                if is_3bpp(sheet) { 3 } else { 2 },
+                is_compressed(sheet),
+                &mut sheet_data,
+                MAX_COPY_EXISTING_LEN,
+            );
+            if let Some(rom_path) = patch.value_of("out_ROM") {
+                put_gfx_address(
+                    sheet,
+                    &mut romdata,
+                    bank_table_addr,
+                    hi_table_addr,
+                    lo_table_addr,
+                    sheet_start,
+                );
+                write_rom(&mut romdata, &compressed_sheet, sheet_start, rom_path)?;
+            } else if let Some(asm_path) = patch.value_of("out_ASM") {
+                let asm_label = format!(
+                    "{}{}",
+                    patch
+                        .value_of("asm_module")
+                        .unwrap_or(DEFAULT_MODULE_PREFIX),
+                    sheet
+                );
+                write_asm(
+                    &vec![(&asm_label, compressed_sheet)],
+                    asm_path,
+                    patch.value_of("asm_label").unwrap_or(DEFAULT_LABEL),
+                    &format!("{:06X}", pc_to_snes(sheet_start)),
+                    8,
+                )?;
+            }
+        }
+        if let Some(patch_link) = matches.subcommand_matches("patch_link") {
+            let sheet_start = parse_hex_arg(&patch_link, "sheet_addr", LINK_SHEET_ADDR)?;
+
+            let (_, mut sheet_data) =
+                load_sheet_raw(&romdata, sheet_start, 4, false, BPP4_SHEET_LEN);
+            if let Some(manifest_path) = patch_link.value_of("in_manifest") {
+                patch_manifest(&mut sheet_data, manifest_path, 16)?;
+            } else {
+                patch_tile(
+                    &mut sheet_data,
+                    &Path::new(patch_link.value_of("in_png").unwrap()),
+                    16,
+                    usize::from_str(patch_link.value_of("x").unwrap())?,
+                    usize::from_str(patch_link.value_of("y").unwrap())?,
+                )?;
+            }
+            let compressed_sheet =
+                compress_sheet_data(4, false, &mut sheet_data, MAX_COPY_EXISTING_LEN);
+            if let Some(rom_path) = patch_link.value_of("out_ROM") {
+                write_rom(&mut romdata, &compressed_sheet, sheet_start, rom_path)?;
+            } else if let Some(asm_path) = patch_link.value_of("out_ASM") {
+                let asm_label = patch_link.value_of("asm_label").unwrap_or(DEFAULT_LABEL);
+                write_asm(
+                    &vec![(asm_label, compressed_sheet)],
+                    asm_path,
+                    patch_link
+                        .value_of("asm_module")
+                        .unwrap_or(DEFAULT_LINK_MODULE),
+                    &format!("{:06X}", pc_to_snes(sheet_start)),
+                    8,
+                )?;
+            }
+        }
+        if let Some(dump) = matches.subcommand_matches("dump") {
+            dump_sheets(
+                bank_table_addr,
+                hi_table_addr,
+                lo_table_addr,
+                &mut romdata,
+                dump.value_of("sheet")
+                    .map(|arg| usize::from_str(arg))
+                    .map_or(Ok(None), |v| v.map(Some))?,
+            )
+        }
+        if let Some(dump_raw) = matches.subcommand_matches("dump_raw") {
+            let (sheet_addr, sheet_data) = load_sheet_raw(
+                &romdata,
+                parse_hex_arg(dump_raw, "sheet_addr", 0)?,
+                usize::from_str(dump_raw.value_of("bpp").unwrap()).unwrap(),
+                !dump_raw.is_present("uncompressed"),
+                parse_hex_arg(dump_raw, "sheet_len", BPP3_SHEET_LEN)?,
+            );
+            dump_sheet(0, &sheet_data, sheet_addr);
+        }
     }
     Ok(())
 }
