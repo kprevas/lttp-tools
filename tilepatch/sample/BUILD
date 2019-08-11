@@ -1,4 +1,4 @@
-load("//:rules.bzl", "patched_tilesheet_asm", "patched_link_sprites_asm")
+load("//:rules.bzl", "patched_link_sprites_asm", "patched_tilesheet_asm")
 
 patched_tilesheet_asm(
     name = "tilegfx_bgd",

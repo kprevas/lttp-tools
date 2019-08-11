@@ -34,14 +34,14 @@ rust_library(
 
 rust_test(
     name = "midi2spc_unit_tests",
-    crate = ":midi2spc",
     size = "small",
+    crate = ":midi2spc",
 )
 
 rust_test(
     name = "midi2spc_integration_tests",
-    srcs = ["tests/test.rs"],
-    deps = [":midi2spc"],
-    data = glob(["sample/*"]),
     size = "medium",
+    srcs = ["tests/test.rs"],
+    data = glob(["sample/*"]),
+    deps = [":midi2spc"],
 )
