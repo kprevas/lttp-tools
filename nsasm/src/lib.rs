@@ -1,9 +1,9 @@
+use itertools::Itertools;
 use std::{
     error::Error,
     fs::OpenOptions,
-    io::{BufWriter, Write}
+    io::{BufWriter, Write},
 };
-use itertools::Itertools;
 
 pub fn write_asm(
     data: &Vec<(&str, Vec<u8>)>,
@@ -11,14 +11,17 @@ pub fn write_asm(
     asm_module: &str,
     start_addr: &str,
     line_len: usize,
+    truncate: bool,
 ) -> Result<(), Box<Error>> {
     let file = OpenOptions::new()
         .read(false)
         .write(true)
         .create(true)
-        .truncate(true)
+        .truncate(truncate)
+        .append(!truncate)
         .open(output_asm_path)?;
     let mut writer = BufWriter::new(&file);
+    writeln!(&mut writer)?;
     writeln!(&mut writer, "        .module {}", asm_module)?;
     writeln!(&mut writer)?;
     writeln!(&mut writer, "        .org ${}", start_addr)?;

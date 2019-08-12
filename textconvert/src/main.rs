@@ -431,7 +431,8 @@ fn txt_to_asm(matches: &ArgMatches) -> Result<(), Box<Error>> {
         matches.value_of("outfile").unwrap(),
         matches.value_of("asm_module").unwrap_or(DEFAULT_MODULE),
         matches.value_of("asm_addr").unwrap_or(DEFAULT_ADDR),
-        8
+        8,
+        true,
     )?;
     Ok(())
 }

@@ -1003,6 +1003,7 @@ fn main() -> Result<(), Box<Error>> {
                     patch.value_of("asm_label").unwrap_or(DEFAULT_LABEL),
                     &format!("{:06X}", pc_to_snes(sheet_start)),
                     8,
+                    true,
                 )?;
             }
         }
@@ -1036,6 +1037,7 @@ fn main() -> Result<(), Box<Error>> {
                         .unwrap_or(DEFAULT_LINK_MODULE),
                     &format!("{:06X}", pc_to_snes(sheet_start)),
                     8,
+                    true,
                 )?;
             }
         }
