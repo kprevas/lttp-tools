@@ -30,6 +30,9 @@ fn test_file_select() {
         DEFAULT_BANK_BASE_ADDRS,
         true,
         false,
+        None,
+        None,
+        None,
     )
     .unwrap();
 }
@@ -42,6 +45,9 @@ fn test_all_overworld() {
         DEFAULT_BANK_BASE_ADDRS,
         true,
         false,
+        None,
+        None,
+        None,
     )
     .unwrap();
 }
@@ -54,6 +60,9 @@ fn test_build_rom() {
         DEFAULT_BANK_BASE_ADDRS,
         true,
         false,
+        None,
+        None,
+        None,
     )
     .unwrap();
 }
