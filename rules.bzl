@@ -77,3 +77,26 @@ def text_asm(
                     asm_addr_arg,
                 ),
     )
+
+def music_asm(
+        name,
+        rom,
+        manifest_json,
+        midis = [],
+        asm_module = "",
+        asm_label = ""):
+    asm_module_arg = "--asm_module %s" % asm_module if asm_module else ""
+    asm_label_arg = "--asm_label %s" % asm_label if asm_label else ""
+    native.genrule(
+        name = name,
+        srcs = [rom, manifest_json] + midis,
+        tools = ["//midi2spc:midi2spc_bin"],
+        outs = [name + ".asm"],
+        cmd = "$(location //midi2spc:midi2spc_bin) -a $@ %s %s build_rom $(location %s) $(location %s)" %
+                (
+                    asm_module_arg,
+                    asm_label_arg,
+                    manifest_json,
+                    rom,
+                )
+    )
