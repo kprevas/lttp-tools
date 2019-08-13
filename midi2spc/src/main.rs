@@ -6,6 +6,9 @@ fn main() -> Result<(), Box<Error>> {
         (@setting SubcommandRequiredElseHelp)
         (@arg skip_optimization: -s --skip_optimization  "skips optimization of CallLoops")
         (@arg verbose: -v --verbose "prints debugging output")
+        (@arg out_ASM: -a --asm_file +takes_value "name of ASM file to output containing music banks")
+        (@arg asm_module: --asm_module +takes_value "module name prefix to use for banks in the ASM file")
+        (@arg asm_label: --asm_label +takes_value "label prefix to use for banks in the ASM file")
         (@subcommand build_rom =>
             (about: "build a ROM according to a manifest file")
             (@arg MANIFEST: +required "the manifest file to use")

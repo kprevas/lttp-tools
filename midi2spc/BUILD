@@ -29,6 +29,7 @@ rust_library(
         "//midi2spc/cargo:serde_derive",
         "//midi2spc/cargo:serde_json",
         "//midi2spc/cargo:simple_error",
+        "//nsasm",
     ],
 )
 

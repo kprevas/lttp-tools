@@ -14,6 +14,9 @@ pub const DEFAULT_BANK_BASE_ADDRS: [u32; 3] = [0x914, 0x926, 0x932];
 const BANK_FIRST_SONG_ADDRS: [usize; 3] = [0xD036, 0xD046, 0xD046];
 const ARAM_BASE: usize = 0xd000;
 
+const DEFAULT_ASM_LABEL_PREFIX: &str = "music";
+const DEFAULT_ASM_MODULE_PREFIX: &str = "music";
+
 fn snes_to_pc_addr(snes_addr: u32) -> usize {
     ((snes_addr & 0x7FFF) + ((snes_addr / 2) & 0xFF8000)) as usize
 }
@@ -65,8 +68,14 @@ pub fn write(
     bank_base_addrs: [u32; 3],
     converter: &Fn(&Path, f32) -> Result<Song, Box<Error>>,
     verbose: bool,
+    asm_file: Option<&str>,
+    asm_module: Option<&str>,
+    asm_label: Option<&str>,
 ) -> Result<(), Box<Error>> {
-    let mut file = OpenOptions::new().read(true).write(true).open(path)?;
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(asm_file.is_none())
+        .open(path)?;
     let mut romdata = Vec::new();
     file.read_to_end(&mut romdata)?;
 
@@ -110,6 +119,10 @@ pub fn write(
                     &mut songs_pb,
                     &mut bank_pbs[i],
                     verbose,
+                    asm_file,
+                    asm_module,
+                    asm_label,
+                    i == 0,
                 )?;
                 bank_pbs[i].finish_print(&format!("{} bank complete.", bank.name));
                 Ok(first_song + bank.songs.len())
@@ -117,8 +130,10 @@ pub fn write(
         },
     )?;
 
-    file.seek(SeekFrom::Start(0))?;
-    file.write(&romdata)?;
+    if asm_file.is_none() {
+        file.seek(SeekFrom::Start(0))?;
+        file.write(&romdata)?;
+    }
     songs_pb.finish_print("All songs written.");
     mb_thread.join().unwrap();
     Ok(())
@@ -134,6 +149,10 @@ fn write_bank(
     songs_pb: &mut ProgressBar<Pipe>,
     bank_pb: &mut ProgressBar<Pipe>,
     verbose: bool,
+    asm_file: Option<&str>,
+    asm_module: Option<&str>,
+    asm_label: Option<&str>,
+    first_bank: bool,
 ) -> Result<(), Box<Error>> {
     // find chunk going to ARAM D000
     let bank_addr = romdata[snes_to_pc_addr(base_addr + 8)];
@@ -399,6 +418,32 @@ fn write_bank(
     for i in song_table_addr..(base_chunk_addr + first_song_addr - ARAM_BASE) {
         romdata[i] = 0x00;
     }
+    if asm_file.is_some() {
+        nsasm::write_asm(
+            &vec![(
+                &format!("{}_{}_base", asm_label.unwrap_or(DEFAULT_ASM_LABEL_PREFIX), bank.name),
+                romdata[base_chunk_addr..base_chunk_addr + base_chunk_len].to_vec(),
+            )],
+            asm_file.unwrap(),
+            &format!("{}_{}_base", asm_module.unwrap_or(DEFAULT_ASM_MODULE_PREFIX), bank.name),
+            &format!("{:06X}", base_chunk_addr),
+            16,
+            first_bank,
+        )?;
+        if rom_addr == overflow_chunk_addr {
+            nsasm::write_asm(
+                &vec![(
+                    &format!("{}_{}_overflow", asm_label.unwrap_or(DEFAULT_ASM_LABEL_PREFIX), bank.name),
+                    romdata[overflow_chunk_addr..overflow_chunk_addr + overflow_chunk_len].to_vec()
+                )],
+                asm_file.unwrap(),
+                &format!("{}_{}_overflow", asm_module.unwrap_or(DEFAULT_ASM_MODULE_PREFIX), bank.name),
+                &format!("{:06X}", overflow_chunk_addr),
+                16,
+                false,
+            )?;
+        }
+    }
     Ok(())
 }
 
@@ -408,6 +453,9 @@ pub fn write_all_overworld(
     bank_base_addrs: [u32; 3],
     converter: &Fn(&Path, f32) -> Result<Song, Box<Error>>,
     verbose: bool,
+    asm_file: Option<&str>,
+    asm_module: Option<&str>,
+    asm_label: Option<&str>,
 ) -> Result<(), Box<Error>> {
     write(
         &Manifest::single_song(song_path),
@@ -415,6 +463,9 @@ pub fn write_all_overworld(
         bank_base_addrs,
         converter,
         verbose,
+        asm_file,
+        asm_module,
+        asm_label,
     )?;
     Ok(())
 }
@@ -425,6 +476,9 @@ pub fn write_file_select(
     bank_base_addrs: [u32; 3],
     converter: &Fn(&Path, f32) -> Result<Song, Box<Error>>,
     verbose: bool,
+    asm_file: Option<&str>,
+    asm_module: Option<&str>,
+    asm_label: Option<&str>,
 ) -> Result<(), Box<Error>> {
     write(
         &Manifest::file_select(song_path),
@@ -432,6 +486,9 @@ pub fn write_file_select(
         bank_base_addrs,
         converter,
         verbose,
+        asm_file,
+        asm_module,
+        asm_label,
     )?;
     Ok(())
 }

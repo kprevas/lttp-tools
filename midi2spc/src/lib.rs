@@ -11,21 +11,24 @@ pub mod rom;
 pub fn run(matches: clap::ArgMatches) -> Result<(), Box<Error>> {
     let optimize = !matches.is_present("skip_optimization");
     let verbose = matches.is_present("verbose");
+    let asm_file = matches.value_of("out_ASM");
+    let asm_module = matches.value_of("asm_module");
+    let asm_label = matches.value_of("asm_label");
     if let Some(matches) = matches.subcommand_matches("build_rom") {
         let manifest_path = matches.value_of("MANIFEST").unwrap();
         let rom_path = matches.value_of("ROM").unwrap();
         let bank_addrs = read_bank_addrs(&matches)?;
-        build_rom(manifest_path, rom_path, bank_addrs, optimize, verbose)?;
+        build_rom(manifest_path, rom_path, bank_addrs, optimize, verbose, asm_file, asm_module, asm_label)?;
     } else if let Some(matches) = matches.subcommand_matches("all_overworld") {
         let input_path = matches.value_of("INPUT").unwrap();
         let rom_path = matches.value_of("ROM").unwrap();
         let bank_addrs = read_bank_addrs(matches)?;
-        write_all_overworld(input_path, rom_path, bank_addrs, optimize, verbose)?;
+        write_all_overworld(input_path, rom_path, bank_addrs, optimize, verbose, asm_file, asm_module, asm_label)?;
     } else if let Some(matches) = matches.subcommand_matches("file_select") {
         let input_path = matches.value_of("INPUT").unwrap();
         let rom_path = matches.value_of("ROM").unwrap();
         let bank_addrs = read_bank_addrs(matches)?;
-        write_file_select(input_path, rom_path, bank_addrs, optimize, verbose)?;
+        write_file_select(input_path, rom_path, bank_addrs, optimize, verbose, asm_file, asm_module, asm_label)?;
     } else if let Some(matches) = matches.subcommand_matches("dump_midi") {
         let input_path = matches.value_of("INPUT");
         let mut midi = midi::MidiHandler::new();
@@ -59,6 +62,9 @@ pub fn build_rom(
     bank_addrs: [u32; 3],
     optimize: bool,
     verbose: bool,
+    asm_file: Option<&str>,
+    asm_module: Option<&str>,
+    asm_label: Option<&str>,
 ) -> Result<(), Box<Error>> {
     let manifest = manifest::Manifest::new(Path::new(manifest_path))?;
     rom::write(
@@ -67,6 +73,9 @@ pub fn build_rom(
         bank_addrs,
         converter(optimize, verbose).as_ref(),
         verbose,
+        asm_file,
+        asm_module,
+        asm_label,
     )?;
     Ok(())
 }
@@ -77,6 +86,9 @@ pub fn write_all_overworld(
     bank_addrs: [u32; 3],
     optimize: bool,
     verbose: bool,
+    asm_file: Option<&str>,
+    asm_module: Option<&str>,
+    asm_label: Option<&str>,
 ) -> Result<(), Box<Error>> {
     rom::write_all_overworld(
         Path::new(input_path),
@@ -84,6 +96,9 @@ pub fn write_all_overworld(
         bank_addrs,
         converter(optimize, verbose).as_ref(),
         verbose,
+        asm_file,
+        asm_module,
+        asm_label,
     )?;
     Ok(())
 }
@@ -94,6 +109,9 @@ pub fn write_file_select(
     bank_addrs: [u32; 3],
     optimize: bool,
     verbose: bool,
+    asm_file: Option<&str>,
+    asm_module: Option<&str>,
+    asm_label: Option<&str>,
 ) -> Result<(), Box<Error>> {
     rom::write_file_select(
         Path::new(input_path),
@@ -101,6 +119,9 @@ pub fn write_file_select(
         bank_addrs,
         converter(optimize, verbose).as_ref(),
         verbose,
+        asm_file,
+        asm_module,
+        asm_label,
     )?;
     Ok(())
 }
