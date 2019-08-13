@@ -3,4 +3,4 @@ container:
 task:
   build_script: bazel build --remote_http_cache=http://$CIRRUS_HTTP_CACHE_HOST --linkopt=-B/usr/bin //textconvert:all //tilepatch:all //midi2spc:all
   test_script: bazel test --remote_http_cache=http://$CIRRUS_HTTP_CACHE_HOST --linkopt=-B/usr/bin //textconvert:all //tilepatch:all //midi2spc:all
-  sample_script: bazel build --remote_http_cache=http://$CIRRUS_HTTP_CACHE_HOST --linkopt=-B/usr/bin --host_linkopt=-B/usr/bin //textconvert/sample:all //tilepatch/sample:all
+  sample_script: bazel build --remote_http_cache=http://$CIRRUS_HTTP_CACHE_HOST --linkopt=-B/usr/bin --host_linkopt=-B/usr/bin //textconvert/sample:all //tilepatch/sample:all //midi2spc/sample:all
