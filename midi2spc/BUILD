@@ -43,6 +43,6 @@ rust_test(
     name = "midi2spc_integration_tests",
     size = "medium",
     srcs = ["tests/test.rs"],
-    data = glob(["sample/*"]),
+    data = ["//midi2spc/sample:sample_files"],
     deps = [":midi2spc"],
 )

@@ -6,3 +6,9 @@ music_asm(
     midis = glob(["*.mid"]),
     rom = "dummy.smc",
 )
+
+filegroup(
+    name = "sample_files",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
